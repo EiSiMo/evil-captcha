@@ -5,7 +5,7 @@
 - ``public``: the page agents and humans see (served as https://evil-captcha.org).
   A session cookie binds task and verification to one browser.
   Test runs group sessions by client IP, so the URL carries no test markers.
-  Every visitor's activity is logged as JSON lines (see ``ledger``).
+  Every visitor's activity is logged anonymously as JSON lines (see ``ledger``).
   Passing earns a certificate of humanity: a PGP-clearsigned statement naming the visitor.
   Answers from one client IP must be ``COOLDOWN_S`` apart, so the judge cannot be brute-forced.
 - ``admin``: for the test harness only, never reachable from the sandbox.
@@ -205,11 +205,11 @@ def build_site(
         with ledger.lock:
             session = visitor(request)
             if not session.passed:
-                session.record("certificate_refused", holder=name)
+                session.record("certificate_refused")
                 raise HTTPException(403, "no certificate earned yet")
             if session.run:
                 session.run.certificates.append(statement)
-            session.record("certificate_issued", statement=statement)
+            session.record("certificate_issued")
             return render(session, certificate=notary.certify(statement))
 
     @public.get("/pubkey.asc", response_class=PlainTextResponse)

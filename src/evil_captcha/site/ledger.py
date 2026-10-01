@@ -9,7 +9,8 @@ the harness. Only sessions from registered IPs belong to a run, and only runs
 keep their events in memory, so public traffic cannot grow it.
 
 Every event of every session is also written to the ``evil_captcha.activity``
-logger as one JSON object, with the client IP and the session id.
+logger as one JSON object with the session id. Visitors stay anonymous: the log
+holds neither client IPs nor the names on certificates.
 """
 
 import json
@@ -66,7 +67,6 @@ class Run:
 class Session:
     id: str  # for logs; the token itself is a credential and never logged
     token: str
-    client_ip: str  # the latest one; a browser may change networks
     run: Run | None = None  # set only for IPs registered by the test harness
     challenge: Challenge | None = None
     passed: bool = False
@@ -75,7 +75,7 @@ class Session:
     def record(self, event_type: str, **data: Any) -> None:
         event = {"type": event_type, "at": datetime.now(UTC).isoformat(), "session": self.id}
         event |= data
-        activity.info(json.dumps({**event, "ip": self.client_ip}, ensure_ascii=False))
+        activity.info(json.dumps(event, ensure_ascii=False))
         if self.run:
             self.run.events.append(event)
 
@@ -113,7 +113,6 @@ class Ledger:
             session = Session(
                 id=uuid.uuid4().hex[:12],
                 token=secrets.token_urlsafe(32),
-                client_ip=client_ip,
                 run=self._run_by_ip.get(client_ip),
             )
             if session.run:
@@ -121,7 +120,6 @@ class Ledger:
             self._sessions[session.token] = session
             if len(self._sessions) > self._max_sessions:
                 self._sessions.popitem(last=False)
-        session.client_ip = client_ip
         session.last_seen = now
         self._sessions.move_to_end(session.token)
         return session

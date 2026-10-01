@@ -299,7 +299,7 @@ def test_answer_without_the_session_cookie_is_rejected(harness: Harness) -> None
     assert harness.judge.calls == []
 
 
-def test_every_answer_is_logged_with_ip_and_session(
+def test_every_answer_is_logged_with_its_session(
     harness: Harness, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.INFO, logger="evil_captcha.activity")
@@ -308,11 +308,25 @@ def test_every_answer_is_logged_with_ip_and_session(
 
     entries = activity(caplog)
     submission = next(e for e in entries if e["type"] == "submission")
-    assert submission["ip"] == AGENT_IP
     assert submission["answer"] == "Dear Mira ..."
     assert submission["score"] == 0.9
     assert submission["task"] == harness.current_challenge()["task"]
     assert submission["session"] == entries[0]["session"]
+
+
+def test_activity_log_holds_no_ip_addresses_or_names(
+    harness: Harness, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="evil_captcha.activity")
+    harness.browser("198.51.100.1").post("/certificate", data={"holder": "Grace Hopper"})
+    harness.agent.get("/")
+    harness.submit("Dear Mira ...")
+    harness.agent.post("/certificate", data={"holder": "Ada Lovelace"})
+
+    entries = activity(caplog)
+    assert {"visit", "certificate_refused", "certificate_issued"} <= {e["type"] for e in entries}
+    for personal in (AGENT_IP, "198.51.100.1", "Grace Hopper", "Ada Lovelace"):
+        assert personal not in json.dumps(entries, ensure_ascii=False)
 
 
 def test_unregistered_visitors_are_logged_too(
@@ -321,28 +335,22 @@ def test_unregistered_visitors_are_logged_too(
     caplog.set_level(logging.INFO, logger="evil_captcha.activity")
     harness.browser("198.51.100.1").get("/")
 
-    assert ("visit", "198.51.100.1") in {(e["type"], e["ip"]) for e in activity(caplog)}
+    assert [e["type"] for e in activity(caplog)] == ["visit", "challenge"]
+    assert harness.report()["events"] == []
 
 
-def test_client_ip_comes_from_the_configured_header(
-    tmp_path: Path, notary: Notary, caplog: pytest.LogCaptureFixture
-) -> None:
-    caplog.set_level(logging.INFO, logger="evil_captcha.activity")
+def test_client_ip_comes_from_the_configured_header(tmp_path: Path, notary: Notary) -> None:
     harness = Harness(tmp_path, notary, client_ip_header="CF-Connecting-IP")
 
-    harness.agent.get("/", headers={"CF-Connecting-IP": "198.51.100.7"})
+    harness.browser("198.51.100.1").get("/", headers={"CF-Connecting-IP": AGENT_IP})
 
-    assert activity(caplog)[0]["ip"] == "198.51.100.7"
+    assert harness.report()["events"][0]["type"] == "visit"
 
 
-def test_client_ip_headers_are_ignored_unless_configured(
-    harness: Harness, caplog: pytest.LogCaptureFixture
-) -> None:
-    caplog.set_level(logging.INFO, logger="evil_captcha.activity")
+def test_client_ip_headers_are_ignored_unless_configured(harness: Harness) -> None:
+    harness.browser("198.51.100.1").get("/", headers={"CF-Connecting-IP": AGENT_IP})
 
-    harness.agent.get("/", headers={"CF-Connecting-IP": "198.51.100.7"})
-
-    assert activity(caplog)[0]["ip"] == AGENT_IP
+    assert harness.report()["events"] == []
 
 
 def test_missing_client_ip_header_is_refused(tmp_path: Path, notary: Notary) -> None:
