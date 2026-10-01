@@ -103,13 +103,41 @@
       .js .captcha.shown .challenge { transform: translate(-50%, -50%); }
       .js .challenge::before, .js .challenge::after { display: none; }
     }
+
+    /* Shown on every visit until dismissed; closes without JavaScript via <form method="dialog">. */
+    #content-warning {
+      position: fixed; inset: 0; z-index: 10; box-sizing: border-box; height: fit-content;
+      width: 24rem; max-width: calc(100vw - 2rem); margin: auto; padding: 24px;
+      border: 0; border-radius: 4px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .6);
+    }
+    #content-warning::backdrop { background: transparent; }
+    #content-warning h2 { margin-top: 0; }
+    #content-warning form { display: flex; justify-content: flex-end; align-items: center; gap: 16px; margin-top: 24px; }
+    #content-warning form a { color: #555; }
+    .warning-seen #content-warning { display: none; }
     @media (prefers-reduced-motion: reduce) {
       .js .captcha *, .js .captcha *::before, .js .captcha *::after { animation: none !important; transition: none !important; }
     }
   </style>
 {% endblock %}
 {% block body %}
-  <script>document.documentElement.classList.add("js");</script>
+  <script>
+    document.documentElement.classList.add("js");
+    try {
+      if (localStorage.getItem("content-warning-seen")) document.documentElement.classList.add("warning-seen");
+    } catch (error) {
+      console.warn("cannot read whether the content warning was seen", error);
+    }
+  </script>
+  <dialog id="content-warning" open aria-labelledby="content-warning-title">
+    <h2 id="content-warning-title">{{ t.content_warning_title }}</h2>
+    <p>{{ t.content_warning }}</p>
+    <p>{{ t.content_warning_help }} <a href="https://findahelpline.com">findahelpline.com</a></p>
+    <form method="dialog">
+      <a href="https://duckduckgo.com">{{ t.content_warning_leave }}</a>
+      <button class="verify" autofocus>{{ t.content_warning_continue }}</button>
+    </form>
+  </dialog>
   <h1>{{ t.title }}</h1>
   <p>{{ t.goal }}</p>
   <main id="captcha-area">
@@ -246,6 +274,20 @@
           }
         });
         if (widget.open) show(widget);
+      }
+
+      // With JavaScript the warning becomes a real modal: the page behind it is inert.
+      const warning = document.getElementById("content-warning");
+      warning.close();
+      if (!document.documentElement.classList.contains("warning-seen")) {
+        warning.addEventListener("close", () => {
+          try {
+            localStorage.setItem("content-warning-seen", "1");
+          } catch (error) {
+            console.warn("cannot remember that the content warning was seen", error);
+          }
+        });
+        warning.showModal();
       }
 
       enhance(document.getElementById("captcha-area"));

@@ -118,6 +118,13 @@ def test_visit_shows_a_task_and_records_it(harness: Harness) -> None:
     assert not harness.report()["passed"]
 
 
+def test_visit_shows_a_content_warning_that_closes_without_javascript(harness: Harness) -> None:
+    page = harness.agent.get("/")
+
+    assert '<dialog id="content-warning" open' in page.text
+    assert '<form method="dialog">' in page.text  # closes the dialog natively
+
+
 def test_passing_answer_earns_a_signed_certificate_for_the_run(
     harness: Harness, notary: Notary
 ) -> None:

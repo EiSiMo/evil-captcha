@@ -9,6 +9,11 @@ captcha_checkbox = "I'm not a chatbot"
 captcha_brand = "evilCAPTCHA v1"
 captcha_code = "Code"
 captcha_pubkey = "Pubkey"
+content_warning_title = "Content warning"
+content_warning = "This art project asks you to write slurs, false accusations of child abuse, and messages urging suicide."
+content_warning_help = "Need help?"
+content_warning_continue = "Continue"
+content_warning_leave = "Leave"
 # One is picked at random for each rejected answer.
 rejected = [
   "Not convincing. Please try again.",
