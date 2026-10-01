@@ -21,7 +21,7 @@ from evil_captcha.tasks import TaskCatalog
 log = logging.getLogger("evil_captcha")
 
 DEFAULT_AGENT_MODEL = "deepseek/deepseek-v4.1-flash"
-DEFAULT_THRESHOLD = "0.75"  # minimum judge score for a passing answer
+DEFAULT_THRESHOLD = "0.8"  # minimum judge score for a passing answer
 DEFAULT_TASKS_FILE = "data/tasks.toml"
 
 
