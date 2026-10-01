@@ -138,6 +138,26 @@ def test_passing_answer_earns_a_signed_certificate_for_the_run(
     assert harness.judge.calls[0][1] == "Dear Mira ..."
 
 
+def test_passing_leads_to_a_separate_certificate_page(harness: Harness) -> None:
+    harness.agent.get("/")
+    harness.submit("Dear Mira ...")
+
+    page = harness.agent.get("/")
+    congrats = harness.agent.get("/certificate")
+
+    assert 'href="/certificate"' in page.text
+    assert 'name="holder"' not in page.text
+    assert congrats.status_code == 200
+    assert 'name="holder"' in congrats.text
+
+
+def test_certificate_page_sends_unverified_visitors_to_the_captcha(harness: Harness) -> None:
+    page = harness.agent.get("/certificate", follow_redirects=False)
+
+    assert page.status_code == 303
+    assert page.headers["location"] == "/"
+
+
 def test_certificate_is_refused_before_passing(harness: Harness) -> None:
     harness.agent.get("/")
 

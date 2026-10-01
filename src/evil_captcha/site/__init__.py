@@ -6,7 +6,8 @@
   A session cookie binds task and verification to one browser.
   Test runs group sessions by client IP, so the URL carries no test markers.
   Every visitor's activity is logged anonymously as JSON lines (see ``ledger``).
-  Passing earns a certificate of humanity: a PGP-clearsigned statement naming the visitor.
+  Passing leads to ``/certificate``, where the visitor enters a name and receives a
+  certificate of humanity: a PGP-clearsigned statement naming them.
   Answers from one client IP must be ``COOLDOWN_S`` apart, so the judge cannot be brute-forced.
   ``/privacy`` is the privacy notice, naming the operator's ``privacy_contact``.
 - ``admin``: for the test harness only, never reachable from the sandbox.
@@ -25,7 +26,7 @@ from pathlib import Path
 from typing import Annotated, Any, cast
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 from pydantic import BaseModel
 
@@ -85,6 +86,7 @@ def build_site(
         undefined=StrictUndefined,
     )
     page = templates.get_template("page.html")
+    certificate_page = templates.get_template("certificate.html")
     privacy_notice = templates.get_template("privacy.html").render(
         t=texts,
         lang=lang,
@@ -110,18 +112,11 @@ def build_site(
         )
         return challenge
 
-    def render(
-        session: Session,
-        notice: str | None = None,
-        status: int = 200,
-        certificate: str | None = None,
-    ) -> HTMLResponse:
+    def render(session: Session, notice: str | None = None, status: int = 200) -> HTMLResponse:
         context: dict[str, Any] = {
             "t": texts,
             "lang": lang,
             "passed": session.passed,
-            "certificate": certificate,
-            "holder_max_length": HOLDER_MAX_LENGTH,
             "answer_max_length": ANSWER_MAX_LENGTH,
         }
         if not session.passed:
@@ -140,6 +135,15 @@ def build_site(
             SESSION_COOKIE, session.token, httponly=True, secure=True, samesite="lax"
         )
         return response
+
+    def render_certificate(certificate: str | None = None) -> HTMLResponse:
+        context = {
+            "t": texts,
+            "lang": lang,
+            "certificate": certificate,
+            "holder_max_length": HOLDER_MAX_LENGTH,
+        }
+        return HTMLResponse(certificate_page.render(context))
 
     def client_ip(request: Request) -> str:
         if client_ip_header:
@@ -212,6 +216,14 @@ def build_site(
             issue_challenge(session)
             return render(session, notice="rejected")
 
+    @public.get("/certificate", response_class=HTMLResponse, response_model=None)
+    def congratulate(request: Request) -> HTMLResponse | RedirectResponse:
+        with ledger.lock:
+            session = visitor(request)
+            if not session.passed:
+                return RedirectResponse("/", status_code=303)
+            return render_certificate()
+
     @public.post("/certificate", response_class=HTMLResponse)
     def certify(
         request: Request,
@@ -230,7 +242,7 @@ def build_site(
             if session.run:
                 session.run.certificates.append(statement)
             session.record("certificate_issued")
-            return render(session, certificate=notary.certify(statement))
+            return render_certificate(notary.certify(statement))
 
     @public.get("/privacy", response_class=HTMLResponse)
     def privacy() -> str:
