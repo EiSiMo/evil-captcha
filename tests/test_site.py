@@ -422,9 +422,10 @@ def test_every_page_links_the_privacy_notice(harness: Harness) -> None:
 
 def test_captcha_page_is_titled_and_shows_the_devil_as_favicon(harness: Harness) -> None:
     page = harness.agent.get("/")
-    icon = harness.agent.get("/favicon.svg")
+    href = page.text.split('<link rel="icon" href="')[1].split('"')[0]
+    icon = harness.agent.get(href)
 
     assert "<title>evilCAPTCHA</title>" in page.text
-    assert '<link rel="icon" href="/favicon.svg" type="image/svg+xml">' in page.text
+    assert href.startswith("/favicon.svg?v=")  # a new icon gets a new URL, past any cache
     assert icon.headers["content-type"].startswith("image/svg+xml")
     assert icon.text.startswith("<svg") and icon.text.strip() in page.text

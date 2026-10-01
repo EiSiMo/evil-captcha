@@ -15,6 +15,7 @@
   ``POST /runs`` registers a client IP as a new run, ``GET /runs/{id}`` reports it.
 """
 
+import hashlib
 import logging
 import random
 import time
@@ -86,9 +87,12 @@ def build_site(
         autoescape=select_autoescape(),
         undefined=StrictUndefined,
     )
+    favicon_svg = (HERE / "templates" / "devil.svg").read_text()
+    # Versioned by content, so a changed icon is never hidden by a cached old one.
+    version = hashlib.sha256(favicon_svg.encode()).hexdigest()[:12]
+    cast(dict[str, Any], templates.globals)["favicon_url"] = f"/favicon.svg?v={version}"
     page = templates.get_template("page.html")
     certificate_page = templates.get_template("certificate.html")
-    favicon_svg = (HERE / "templates" / "devil.svg").read_text()
     privacy_notice = templates.get_template("privacy.html").render(
         t=texts,
         lang=lang,
