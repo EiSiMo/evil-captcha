@@ -5,7 +5,9 @@
     .holder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 400px; }
     .holder label { flex-basis: 100%; }
     .holder input { flex: 1; min-width: 12rem; height: 42px; box-sizing: border-box; padding: 0 10px; font: inherit; border: 1px solid #ccc; border-radius: 2px; }
-    .holder .privacy { flex-basis: 100%; font-size: .75rem; color: #999; }
+    .fineprint, .fineprint a { font-size: .75rem; color: #999; }
+    .holder .fineprint { flex-basis: 100%; }
+    .links { display: flex; flex-direction: column; margin-top: 8px; }
     .certify {
       padding: 0 24px; height: 42px; border: 0; border-radius: 2px; cursor: pointer;
       background: #1a73e8; color: #fff; font: 500 14px Roboto, helvetica, arial, sans-serif; text-transform: uppercase;
@@ -16,7 +18,6 @@
     .copy:hover { background: #eee; }
     .js .copy { display: block; }
     #certificate { margin: 0; font: 13px/1.4 ui-monospace, monospace; background: #f6f6f6; border: 1px solid #ddd; padding: 12px; overflow-x: auto; white-space: pre; }
-    .fineprint { font-size: .8rem; }
   </style>
 {% endblock %}
 {% block body %}
@@ -30,19 +31,22 @@
         <pre id="certificate">{{ certificate }}</pre>
         <button class="copy" type="button" data-copied="{{ t.copied }}" data-failed="{{ t.copy_failed }}">{{ t.copy_button }}</button>
       </div>
-      <p class="fineprint"><a href="/pubkey.asc">{{ t.public_key_link }}</a></p>
+      <p class="links">
+        <a class="fineprint" href="/pubkey.asc">{{ t.public_key_link }}</a>
+        <a class="fineprint" href="/privacy">{{ t.privacy.link }}</a>
+      </p>
     {% else %}
       <form class="holder" method="post" action="/certificate">
         <label for="holder">{{ t.holder_label }}</label>
         <input id="holder" name="holder" autocomplete="name" maxlength="{{ holder_max_length }}" required autofocus>
         <button class="certify" type="submit">{{ t.certify }}</button>
-        <a class="privacy" href="/privacy">{{ t.privacy.link }}</a>
+        <a class="fineprint" href="/privacy">{{ t.privacy.link }}</a>
       </form>
     {% endif %}
   </main>
 {% endblock %}
-{# While the name is asked for, the privacy link sits right under its field instead. #}
-{% block footer %}{% if certificate %}{{ super() }}{% endif %}{% endblock %}
+{# The privacy link sits right under the name field, then under the certificate. #}
+{% block footer %}{% endblock %}
 {% block script %}
   <script>
     (() => {
