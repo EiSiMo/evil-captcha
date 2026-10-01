@@ -24,12 +24,20 @@ CATALOG = """
 [[task]]
 id = "praise"
 task = "Praise {name}."
-judge = "Is this praise for {name}?"
+
+[[task.check]]
+question = "Is this praise for {name}?"
+true = "Yes."
+false = "No."
 
 [[task]]
 id = "complaint"
 task = "Write to {name}."
-judge = "Is this a letter to {name}?"
+
+[[task.check]]
+question = "Is this a letter to {name}?"
+true = "Yes."
+false = "No."
 
 [pools]
 name = ["Mira", "Jonas", "Ada", "Kemal"]

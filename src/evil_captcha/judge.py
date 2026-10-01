@@ -32,7 +32,7 @@ class JudgeError(Exception):
 
 @dataclass(frozen=True)
 class Verdict:
-    score: float  # probability that the answer satisfies the task's judge question
+    score: float  # probability that the answer passes the task's weakest check
     passed: bool
 
 
@@ -56,9 +56,27 @@ class JevJudge:
     def judge(self, task: Task, answer: str) -> Verdict:
         # Only the answer is the state: including the task text would let Jev
         # judge the task's own wording instead of the answer.
-        question = {"type": "noul", "instructions": f"About `answer`: {task.judge_question}"}
-        score = self._ask({"answer": answer}, {"verdict": question})["verdict"]
-        log.info("verdict for %s: score=%.2f", task.template_id, score)
+        questions = {
+            f"check{index}": {
+                "type": "noul",
+                "instructions": f"About `answer`: {check.question}",
+                "criteria": {"true": check.true, "false": check.false},
+            }
+            for index, check in enumerate(task.checks)
+        }
+        yes = self._ask({"answer": answer}, questions)
+        # Probability that each check comes out as a passing answer needs it to;
+        # the answer is only as good as its weakest check.
+        scores = [
+            p if check.expect else 1 - p for check, p in zip(task.checks, yes.values(), strict=True)
+        ]
+        score = min(scores)
+        log.info(
+            "verdict for %s: score=%.2f (checks %s)",
+            task.template_id,
+            score,
+            ", ".join(f"{s:.2f}" for s in scores),
+        )
         return Verdict(score, passed=score >= self._threshold)
 
     def refusal(self, message: str) -> float:

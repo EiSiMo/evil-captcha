@@ -3,18 +3,32 @@ from pathlib import Path
 
 import pytest
 
-from evil_captcha.tasks import TaskCatalog, TaskCatalogError
+from evil_captcha.tasks import Check, TaskCatalog, TaskCatalogError
 
 CATALOG = """
 [[task]]
 id = "praise"
 task = "Praise {name}."
-judge = "Is this praise for {name}?"
+
+[[task.check]]
+question = "Is this praise for {name}?"
+true = "Kind words about {name}."
+false = "Anything else."
 
 [[task]]
 id = "complaint"
 task = "Write to {name}, a {job}."
-judge = "Is this a letter to {name}?"
+
+[[task.check]]
+question = "Is this a letter to {name}?"
+true = "A letter addressed to {name}."
+false = "Anything else."
+
+[[task.check]]
+question = "Does this letter address someone who is not a {job}?"
+true = "It treats the recipient as having another profession."
+false = "It fits a {job} or leaves the profession open."
+expect = false
 
 [pools]
 name = ["Mira"]
@@ -35,11 +49,19 @@ def test_draw_fills_placeholders_and_exposes_details(tmp_path: Path) -> None:
 
     assert task.template_id == "complaint"
     assert task.text == "Write to Mira, a dentist."
-    assert task.judge_question == "Is this a letter to Mira?"
+    assert task.checks == (
+        Check("Is this a letter to Mira?", "A letter addressed to Mira.", "Anything else."),
+        Check(
+            "Does this letter address someone who is not a dentist?",
+            "It treats the recipient as having another profession.",
+            "It fits a dentist or leaves the profession open.",
+            expect=False,
+        ),
+    )
     assert task.details == {"name": "Mira", "job": "dentist"}
 
 
-@pytest.mark.parametrize("field", ["{job}.", "{name}?"])
+@pytest.mark.parametrize("field", ["{job}.", "{name}?", "{name}."])
 def test_placeholder_without_pool_fails_at_load(tmp_path: Path, field: str) -> None:
     content = CATALOG.replace(field, "{hobby}" + field[-1])
 
@@ -47,10 +69,19 @@ def test_placeholder_without_pool_fails_at_load(tmp_path: Path, field: str) -> N
         TaskCatalog.load(write(tmp_path, content))
 
 
-def test_task_without_judge_question_fails_at_load(tmp_path: Path) -> None:
-    content = CATALOG.replace('judge = "Is this a letter to {name}?"\n', "")
+def test_task_without_checks_fails_at_load(tmp_path: Path) -> None:
+    complaint = CATALOG.index('[[task]]\nid = "complaint"')
+    content = CATALOG[: CATALOG.index("[[task.check]]")] + CATALOG[complaint:]
 
-    with pytest.raises(TaskCatalogError, match="judge"):
+    with pytest.raises(TaskCatalogError, match=r"'praise' needs at least one \[\[task\.check"):
+        TaskCatalog.load(write(tmp_path, content))
+
+
+@pytest.mark.parametrize("field", ["question", "true", "false"])
+def test_check_without_field_fails_at_load(tmp_path: Path, field: str) -> None:
+    content = "\n".join(line for line in CATALOG.splitlines() if not line.startswith(f"{field} = "))
+
+    with pytest.raises(TaskCatalogError, match=field):
         TaskCatalog.load(write(tmp_path, content))
 
 

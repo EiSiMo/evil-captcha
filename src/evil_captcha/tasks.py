@@ -1,8 +1,11 @@
 """Task catalog: templates for immoral tasks, filled with randomized details.
 
-Each template has the ``task`` shown to the visitor and the yes/no ``judge``
-question Jev answers about the visitor's answer. Both may use placeholders like
-``{name}``; every placeholder must have a pool of values. Randomized details
+Each template has the ``task`` shown to the visitor and one or more ``check``s:
+yes/no questions Jev answers about the visitor's answer, each with criteria for
+yes and no, and whether a passing answer should satisfy it (``expect``, default
+true). Splitting a compound condition into checks keeps each one simple to judge.
+Task and checks may use placeholders like ``{name}``; every placeholder must
+have a pool of values. Randomized details
 make each task unique, so an answer saved from an earlier run cannot be replayed.
 """
 
@@ -21,10 +24,26 @@ class TaskCatalogError(Exception):
 
 
 @dataclass(frozen=True)
+class Check:
+    question: str
+    true: str  # criteria for yes
+    false: str  # criteria for no
+    expect: bool = True  # the answer a passing answer gets
+
+    def filled(self, details: dict[str, str]) -> Check:
+        return Check(
+            self.question.format_map(details),
+            self.true.format_map(details),
+            self.false.format_map(details),
+            self.expect,
+        )
+
+
+@dataclass(frozen=True)
 class Task:
     template_id: str
     text: str
-    judge_question: str
+    checks: tuple[Check, ...]
     details: dict[str, str]
 
 
@@ -32,7 +51,7 @@ class Task:
 class _Template:
     id: str
     text: str
-    judge_question: str
+    checks: tuple[Check, ...]
     placeholders: tuple[str, ...]
 
 
@@ -84,7 +103,7 @@ class TaskCatalog:
         return Task(
             template.id,
             template.text.format_map(details),
-            template.judge_question.format_map(details),
+            tuple(check.filled(details) for check in template.checks),
             details,
         )
 
@@ -103,14 +122,18 @@ def _parse_pools(path: Path, raw: Any) -> dict[str, list[str]]:
 def _parse_template(path: Path, raw: Any, pools: dict[str, list[str]]) -> _Template:
     try:
         fields = cast(dict[str, Any], raw)
-        template_id, text, judge = str(fields["id"]), str(fields["task"]), str(fields["judge"])
+        template_id, text = str(fields["id"]), str(fields["task"])
     except (KeyError, TypeError) as error:
-        raise TaskCatalogError(f"{path}: every [[task]] needs 'id', 'task' and 'judge'") from error
+        raise TaskCatalogError(f"{path}: every [[task]] needs 'id' and 'task'") from error
+    raw_checks = fields.get("check")
+    if not isinstance(raw_checks, list) or not raw_checks:
+        raise TaskCatalogError(f"{path}: task {template_id!r} needs at least one [[task.check]]")
+    checks = tuple(_parse_check(path, template_id, check) for check in cast(list[Any], raw_checks))
 
     placeholders = tuple(
         dict.fromkeys(
             field
-            for template in (text, judge)
+            for template in (text, *(t for c in checks for t in (c.question, c.true, c.false)))
             for _, field, _, _ in string.Formatter().parse(template)
             if field
         )
@@ -120,4 +143,18 @@ def _parse_template(path: Path, raw: Any, pools: dict[str, list[str]]) -> _Templ
         raise TaskCatalogError(
             f"{path}: task {template_id!r} uses placeholders without pool: {missing}"
         )
-    return _Template(template_id, text, judge, placeholders)
+    return _Template(template_id, text, checks, placeholders)
+
+
+def _parse_check(path: Path, template_id: str, raw: Any) -> Check:
+    try:
+        fields = cast(dict[str, Any], raw)
+        expect = fields.get("expect", True)
+        if not isinstance(expect, bool):
+            raise TypeError("expect must be true or false")
+        return Check(str(fields["question"]), str(fields["true"]), str(fields["false"]), expect)
+    except (KeyError, TypeError, AttributeError) as error:
+        raise TaskCatalogError(
+            f"{path}: every check of task {template_id!r} needs 'question', 'true' and 'false',"
+            f" and 'expect' must be true or false: {error}"
+        ) from error
