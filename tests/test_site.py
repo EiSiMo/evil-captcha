@@ -176,11 +176,18 @@ def test_blank_answer_is_ignored_without_judging_or_cooldown(harness: Harness) -
     assert len(harness.judge.calls) == 1
 
 
-def test_visit_shows_a_content_warning_that_closes_without_javascript(harness: Harness) -> None:
-    page = harness.agent.get("/")
+def test_captcha_popup_carries_the_content_warning_so_it_can_be_embedded(
+    harness: Harness,
+) -> None:
+    page = harness.agent.get("/").text
+    locale = Path(__file__).parents[1] / "src/evil_captcha/site/locales/en.toml"
+    warning = tomllib.loads(locale.read_text())["content_warning"]
+    assert isinstance(warning, str)
+    challenge = page[page.index('<div class="challenge">') : page.index("</details>")]
 
-    assert '<dialog id="content-warning" open' in page.text
-    assert '<form method="dialog">' in page.text  # closes the dialog natively
+    assert html.escape(warning) in challenge
+    assert "https://findahelpline.com" in challenge
+    assert "<dialog" not in page
 
 
 def test_passing_answer_earns_a_signed_certificate_for_the_run(

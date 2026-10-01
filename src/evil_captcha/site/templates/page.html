@@ -108,17 +108,20 @@
       .js .challenge::before, .js .challenge::after { display: none; }
     }
 
-    /* Shown on every visit until dismissed; closes without JavaScript via <form method="dialog">. */
-    #content-warning {
-      position: fixed; inset: 0; z-index: 10; box-sizing: border-box; height: fit-content;
-      width: 24rem; max-width: calc(100vw - 2rem); margin: auto; padding: 24px;
-      border: 0; border-radius: 4px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .6);
+    /* The content warning lives inside the popup, so it travels with an embedded captcha.
+       Without JavaScript it is a notice above the task; with it, it replaces the task
+       until continued, once per browser session. */
+    .challenge-warning { margin: 7px; padding: 0 17px; }
+    .challenge-warning h2 { margin: 17px 0 8px; font-size: 20px; }
+    .challenge-warning a { color: #1a73e8; }
+    .challenge-warning .challenge-footer { display: none; }
+    .js .challenge-warning .challenge-footer { display: flex; align-items: center; gap: 8px; margin: 7px -24px -7px; }
+    .cancel {
+      padding: 0 16px; height: 42px; border: 0; border-radius: 2px; cursor: pointer; background: none;
+      color: #555; font: 500 14px Roboto, helvetica, arial, sans-serif; text-transform: uppercase;
     }
-    #content-warning::backdrop { background: transparent; }
-    #content-warning h2 { margin-top: 0; }
-    #content-warning form { display: flex; justify-content: flex-end; align-items: center; gap: 16px; margin-top: 24px; }
-    #content-warning form a { color: #555; }
-    .warning-seen #content-warning { display: none; }
+    .cancel:hover { background: #f1f1f1; }
+    .js:not(.warning-seen) .challenge > :not(.challenge-warning), .js.warning-seen .challenge-warning { display: none; }
     @media (prefers-reduced-motion: reduce) {
       .js .captcha *, .js .captcha *::before, .js .captcha *::after, .js .button { animation: none !important; transition: none !important; }
     }
@@ -128,20 +131,11 @@
   <script>
     document.documentElement.classList.add("js");
     try {
-      if (localStorage.getItem("content-warning-seen")) document.documentElement.classList.add("warning-seen");
+      if (sessionStorage.getItem("content-warning-seen")) document.documentElement.classList.add("warning-seen");
     } catch (error) {
       console.warn("cannot read whether the content warning was seen", error);
     }
   </script>
-  <dialog id="content-warning" open aria-labelledby="content-warning-title">
-    <h2 id="content-warning-title">{{ t.content_warning_title }}</h2>
-    <p>{{ t.content_warning }}</p>
-    <p>{{ t.content_warning_help }} <a href="https://findahelpline.com">findahelpline.com</a></p>
-    <form method="dialog">
-      <a href="https://duckduckgo.com">{{ t.content_warning_leave }}</a>
-      <button class="verify" autofocus>{{ t.content_warning_continue }}</button>
-    </form>
-  </dialog>
   <main class="card">
     <h1>{{ t.title }}</h1>
     <p>{{ t.goal }}</p>
@@ -183,6 +177,15 @@
             </summary>
             <div class="backdrop"></div>
             <div class="challenge">
+              <div class="challenge-warning">
+                <h2>{{ t.content_warning_title }}</h2>
+                <p>{{ t.content_warning }}</p>
+                <p>{{ t.content_warning_help }} <a href="https://findahelpline.com">findahelpline.com</a></p>
+                <div class="challenge-footer">
+                  <button class="cancel" type="button">{{ t.content_warning_cancel }}</button>
+                  <button class="verify continue" type="button">{{ t.content_warning_continue }}</button>
+                </div>
+              </div>
               <div class="challenge-header">
                 <p>{{ t.instructions }}</p>
                 <p class="challenge-task" id="task">{{ task }}</p>
@@ -219,11 +222,28 @@
       const wait = (ms) => new Promise((resolve) => setTimeout(resolve, motion ? ms : 0));
       const frame = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
+      // Until continued, the popup shows the content warning instead of the task.
+      const warning = () => !document.documentElement.classList.contains("warning-seen");
+
       async function show(widget) {
         widget.open = true;
         await frame();
         widget.classList.add("shown");
-        widget.querySelector("textarea").focus();
+        widget.querySelector(warning() ? ".continue" : "textarea").focus();
+      }
+
+      async function proceed(widget) {
+        try {
+          sessionStorage.setItem("content-warning-seen", "1");
+        } catch (error) {
+          console.warn("cannot remember that the content warning was seen", error);
+        }
+        document.documentElement.classList.add("warning-seen");
+        const challenge = widget.querySelector(".challenge");
+        challenge.classList.remove("entering");
+        await frame();
+        challenge.classList.add("entering");
+        challenge.querySelector("textarea").focus();
       }
 
       async function hide(widget) {
@@ -285,34 +305,25 @@
           await show(widget);
         });
         widget.querySelector(".backdrop").addEventListener("click", () => hide(widget));
+        // Delegated: a rejected answer replaces the popup's contents, buttons included.
+        widget.querySelector(".challenge").addEventListener("click", (event) => {
+          if (event.target.closest(".cancel")) hide(widget);
+          else if (event.target.closest(".continue")) proceed(widget);
+        });
         form.addEventListener("submit", (event) => {
           if (event.submitter?.id === "apply") return;  // the unlocked form goes to /certificate
           event.preventDefault();
-          // Enter in the name field lands here too; only an open challenge is checked.
-          if (widget.classList.contains("shown") && !widget.classList.contains("verifying")) verify(widget, form);
+          // Enter in the name field lands here too; only an open, warned challenge is checked.
+          if (widget.classList.contains("shown") && !widget.classList.contains("verifying") && !warning()) verify(widget, form);
         });
         // In the answer, Enter verifies and Shift+Enter inserts a newline.
         form.addEventListener("keydown", (event) => {
           if (event.target.matches("textarea") && event.key === "Enter" && !event.shiftKey && !event.isComposing) {
             event.preventDefault();
-            form.requestSubmit(widget.querySelector(".verify"));
+            form.requestSubmit(widget.querySelector(".verify[type=submit]"));
           }
         });
         if (widget.open) show(widget);
-      }
-
-      // With JavaScript the warning becomes a real modal: the page behind it is inert.
-      const warning = document.getElementById("content-warning");
-      warning.close();
-      if (!document.documentElement.classList.contains("warning-seen")) {
-        warning.addEventListener("close", () => {
-          try {
-            localStorage.setItem("content-warning-seen", "1");
-          } catch (error) {
-            console.warn("cannot remember that the content warning was seen", error);
-          }
-        });
-        warning.showModal();
       }
 
       enhance(document.getElementById("application"));
