@@ -47,7 +47,7 @@ certificate_intro = "Your certificate of humanity:"
 copy_button = "Copy"
 copied = "Copied"
 copy_failed = "Copy failed"
-public_key_link = "Verify it with gpg and our public key"
+public_key_link = "Verify"
 
 # Placeholders: {retention_days}, {session_ttl_minutes}, {cooldown_s}.
 [privacy]

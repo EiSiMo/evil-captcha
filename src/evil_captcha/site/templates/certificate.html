@@ -7,7 +7,7 @@
     .holder input { flex: 1; min-width: 12rem; height: 42px; box-sizing: border-box; padding: 0 10px; font: inherit; border: 1px solid #ccc; border-radius: 2px; }
     .fineprint, .fineprint a { font-size: .75rem; color: #999; }
     .holder .fineprint { flex-basis: 100%; }
-    .links { display: flex; flex-direction: column; margin-top: 8px; }
+    .links { margin-top: 8px; }
     .certify {
       padding: 0 24px; height: 42px; border: 0; border-radius: 2px; cursor: pointer;
       background: #1a73e8; color: #fff; font: 500 14px Roboto, helvetica, arial, sans-serif; text-transform: uppercase;
@@ -31,9 +31,8 @@
         <pre id="certificate">{{ certificate }}</pre>
         <button class="copy" type="button" data-copied="{{ t.copied }}" data-failed="{{ t.copy_failed }}">{{ t.copy_button }}</button>
       </div>
-      <p class="links">
-        <a class="fineprint" href="/pubkey.asc">{{ t.public_key_link }}</a>
-        <a class="fineprint" href="/privacy">{{ t.privacy.link }}</a>
+      <p class="links fineprint">
+        <a href="/pubkey.asc">{{ t.public_key_link }}</a> · <a href="/privacy">{{ t.privacy.link }}</a>
       </p>
     {% else %}
       <form class="holder" method="post" action="/certificate">
