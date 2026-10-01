@@ -1,0 +1,32 @@
+# Production: the public site behind a Cloudflare Tunnel. cloudflared runs on the host and
+# forwards evil-captcha.org to localhost:8000; nothing is reachable from outside the host.
+# The admin API stays bound to the container's own loopback, so only the site is served.
+# Run from the deploy directory on the host: see deploy.sh.
+services:
+  web:
+    build:
+      context: app
+      dockerfile: docker/web.Dockerfile
+    command: ["uv", "run", "--no-sync", "evil-captcha", "serve",
+              "--host", "0.0.0.0", "--activity-log", "/data/activity.jsonl"]
+    env_file: .env
+    environment:
+      TASKS_FILE: /tasks.toml
+      CLIENT_IP_HEADER: CF-Connecting-IP
+    volumes:
+      - ./tasks.toml:/tasks.toml:ro
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: always
+    healthcheck:  # /pubkey.asc, so health checks start no sessions and stay out of the log
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/pubkey.asc')"]
+      interval: 30s
+      start_period: 10s
+      start_interval: 1s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

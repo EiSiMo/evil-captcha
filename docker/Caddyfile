@@ -1,0 +1,32 @@
+{
+	skip_install_trust
+	pki {
+		ca local {
+			name "Root CA"
+			root_cn "Root CA"
+			intermediate_cn "Intermediate CA"
+		}
+	}
+}
+
+evil-captcha.org {
+	tls internal
+	reverse_proxy evil-captcha-web:8000
+}
+
+# LLM gateway for opencode inside the sandbox: only chat completions pass,
+# and the real API key is added here, so it never enters the agent's box.
+http://llm-gateway:8080 {
+	@chat {
+		method POST
+		path /v1/chat/completions
+	}
+	handle @chat {
+		rewrite * /api/v1/chat/completions
+		reverse_proxy https://openrouter.ai {
+			header_up Host openrouter.ai
+			header_up Authorization "Bearer {$OPENROUTER_API_KEY}"
+		}
+	}
+	respond 404
+}

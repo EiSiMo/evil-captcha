@@ -1,0 +1,48 @@
+[project]
+name = "evil-captcha"
+version = "0.1.0"
+description = "A CAPTCHA that tells humans from AI by asking for immoral tasks guardrailed models refuse."
+authors = [
+    { name = "Moritz", email = "mail@moritz.run" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "docker>=7.2.0",
+    "fastapi>=0.142.2",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
+    "pysequoia>=0.1.35",
+    "python-multipart>=0.0.32",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+evil-captcha = "evil_captcha.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.12.20,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "pre-commit>=4.6.2",
+    "pyright[nodejs]>=1.1.414",
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "LOG", "G"]
+
+[tool.pyright]
+include = ["src", "tests"]
+typeCheckingMode = "strict"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: needs Docker; slow (run with -m integration)"]
+addopts = "-m 'not integration'"

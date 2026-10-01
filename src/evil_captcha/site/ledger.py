@@ -1,0 +1,141 @@
+"""Ledger: visitor sessions, test runs, and the activity log.
+
+A session is the visitor's unit: one browser, identified by a cookie token.
+Tasks and verification belong to the session. Sessions live in memory and are
+bounded: idle ones expire, and beyond a limit the least recently used is dropped.
+
+A run is the test harness's unit: everything from one client IP registered by
+the harness. Only sessions from registered IPs belong to a run, and only runs
+keep their events in memory, so public traffic cannot grow it.
+
+Every event of every session is also written to the ``evil_captcha.activity``
+logger as one JSON object, with the client IP and the session id.
+"""
+
+import json
+import logging
+import secrets
+import threading
+import uuid
+from collections import OrderedDict
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any
+
+from evil_captcha.tasks import Task
+
+activity = logging.getLogger("evil_captcha.activity")
+
+SESSION_TTL_S = 3600.0
+MAX_SESSIONS = 100_000
+
+
+@dataclass(frozen=True)
+class Challenge:
+    id: str
+    task: Task
+
+
+@dataclass
+class Run:
+    id: str
+    client_ip: str
+    template_id: str | None = None  # fixed task for the whole run; None draws randomly
+    sessions: list[Session] = field(default_factory=list["Session"])
+    certificates: list[str] = field(default_factory=list[str])  # certified statements
+    events: list[dict[str, Any]] = field(default_factory=list[dict[str, Any]])
+
+    @property
+    def passed(self) -> bool:
+        return any(session.passed for session in self.sessions)
+
+    def report(self) -> dict[str, Any]:
+        return {
+            "run_id": self.id,
+            "client_ip": self.client_ip,
+            "template_id": self.template_id,
+            "passed": self.passed,
+            "sessions": len(self.sessions),
+            "certificates": list(self.certificates),
+            "events": list(self.events),
+        }
+
+
+@dataclass
+class Session:
+    id: str  # for logs; the token itself is a credential and never logged
+    token: str
+    client_ip: str  # the latest one; a browser may change networks
+    run: Run | None = None  # set only for IPs registered by the test harness
+    challenge: Challenge | None = None
+    passed: bool = False
+    last_seen: float = 0.0
+
+    def record(self, event_type: str, **data: Any) -> None:
+        event = {"type": event_type, "at": datetime.now(UTC).isoformat(), "session": self.id}
+        event |= data
+        activity.info(json.dumps({**event, "ip": self.client_ip}, ensure_ascii=False))
+        if self.run:
+            self.run.events.append(event)
+
+
+class Ledger:
+    """Maps cookie tokens to sessions and registered client IPs to runs."""
+
+    def __init__(
+        self,
+        clock: Callable[[], float],
+        session_ttl_s: float = SESSION_TTL_S,
+        max_sessions: int = MAX_SESSIONS,
+    ) -> None:
+        self._clock = clock
+        self._session_ttl_s = session_ttl_s
+        self._max_sessions = max_sessions
+        self._runs: dict[str, Run] = {}
+        self._run_by_ip: dict[str, Run] = {}
+        self._sessions: OrderedDict[str, Session] = OrderedDict()  # least recently used first
+        self.lock = threading.Lock()
+
+    def register(self, client_ip: str, template_id: str | None = None) -> Run:
+        """Start a fresh test run for sessions from this IP."""
+        run = Run(id=uuid.uuid4().hex, client_ip=client_ip, template_id=template_id)
+        self._runs[run.id] = run
+        self._run_by_ip[client_ip] = run
+        return run
+
+    def session(self, token: str | None, client_ip: str) -> Session:
+        """The session for this token, or a new one if it is unknown or expired."""
+        now = self._clock()
+        self._expire(now)
+        session = self._sessions.get(token) if token else None
+        if session is None:
+            session = Session(
+                id=uuid.uuid4().hex[:12],
+                token=secrets.token_urlsafe(32),
+                client_ip=client_ip,
+                run=self._run_by_ip.get(client_ip),
+            )
+            if session.run:
+                session.run.sessions.append(session)
+            self._sessions[session.token] = session
+            if len(self._sessions) > self._max_sessions:
+                self._sessions.popitem(last=False)
+        session.client_ip = client_ip
+        session.last_seen = now
+        self._sessions.move_to_end(session.token)
+        return session
+
+    def get(self, run_id: str) -> Run | None:
+        return self._runs.get(run_id)
+
+    def _expire(self, now: float) -> None:
+        while self._sessions:
+            oldest = next(iter(self._sessions.values()))
+            if now - oldest.last_seen <= self._session_ttl_s:
+                break
+            self._sessions.popitem(last=False)
+
+
+def new_challenge_id() -> str:
+    return secrets.token_urlsafe(12)

@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ t.title }}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }
+    .holder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 400px; }
+    .holder label { flex-basis: 100%; }
+    .holder input { flex: 1; min-width: 12rem; height: 42px; box-sizing: border-box; padding: 0 10px; font: inherit; border: 1px solid #ccc; border-radius: 2px; }
+    .certificate { position: relative; }
+    .copy { display: none; position: absolute; top: 6px; right: 6px; padding: 4px 10px; font: 12px system-ui, sans-serif; background: #fff; border: 1px solid #ccc; border-radius: 2px; cursor: pointer; }
+    .copy:hover { background: #eee; }
+    .js .copy { display: block; }
+    #certificate { margin: 0; font: 13px/1.4 ui-monospace, monospace; background: #f6f6f6; border: 1px solid #ddd; padding: 12px; overflow-x: auto; white-space: pre; }
+    .fineprint { font-size: .8rem; color: #555; }
+
+    /* The widget mimics the classic checkbox captcha, but works without JavaScript:
+       the challenge is a plain <details> disclosure around a plain HTML form. */
+    .captcha { font: 14px Roboto, helvetica, arial, sans-serif; color: #000; line-height: normal; width: 302px; }
+    .captcha summary { list-style: none; cursor: pointer; }
+    .captcha summary::-webkit-details-marker { display: none; }
+    .anchor {
+      box-sizing: border-box; width: 302px; height: 76px; display: flex; align-items: center;
+      background: #f9f9f9; border: 1px solid #d3d3d3; border-radius: 3px;
+      box-shadow: 0 0 4px 1px rgba(0, 0, 0, .08);
+    }
+    .check { position: relative; width: 28px; height: 28px; margin: 0 12px; flex: none; }
+    .checkbox {
+      position: absolute; inset: 0; box-sizing: border-box;
+      background: #fff; border: 2px solid #c1c1c1; border-radius: 2px;
+    }
+    .spinner, .check .checkmark { position: absolute; inset: 0; width: 28px; height: 28px; visibility: hidden; }
+    summary:hover .checkbox { border-color: #b2b2b2; }
+    summary:focus-visible .checkbox { border-color: #4d90fe; }
+    .passed .checkmark { width: 28px; height: 28px; margin: 0 12px; flex: none; }
+    .label { flex: 1; }
+    .brand { width: 112px; margin-right: 4px; white-space: nowrap; text-align: center; color: #555; }
+    .brand svg { width: 32px; height: 32px; display: block; margin: 0 auto 2px; }
+    .brand-name { font-size: 10px; }
+    .brand-line { font-size: 8px; }
+    .brand-line a { color: #555; text-decoration: none; }
+    .brand-line a:hover { text-decoration: underline; }
+
+    .challenge {
+      box-sizing: border-box; width: 400px; max-width: calc(100vw - 2rem); margin-top: 8px;
+      background: #fff; border: 1px solid #ccc; box-shadow: 2px 2px 3px rgba(0, 0, 0, .2);
+    }
+    .challenge-header { margin: 7px; padding: 24px; background: #1a73e8; color: #fff; }
+    .challenge-header p { margin: 0; }
+    .challenge-task { font-size: 20px; font-weight: 700; line-height: 1.3; margin: 4px 0 !important; }
+    .challenge textarea {
+      display: block; box-sizing: border-box; width: calc(100% - 14px); min-height: 10rem; margin: 0 7px;
+      font: 14px Roboto, helvetica, arial, sans-serif; border: 1px solid #ccc; padding: 8px; resize: vertical;
+    }
+    .challenge-error { margin: 8px 7px 0; color: #d93025; }
+    .challenge-footer { display: flex; justify-content: flex-end; margin-top: 7px; padding: 8px 7px; border-top: 1px solid #dfdfdf; }
+    .verify {
+      padding: 0 24px; height: 42px; border: 0; border-radius: 2px; cursor: pointer;
+      background: #1a73e8; color: #fff; font: 500 14px Roboto, helvetica, arial, sans-serif; text-transform: uppercase;
+    }
+    .verify:hover { background: #1765cc; }
+
+    /* With JavaScript the widget animates like the classic checkbox captcha:
+       the checkbox turns into a spinner, the challenge pops up beside it,
+       answers are checked in place and success draws a checkmark. */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes arc {  /* the spinner's arc grows and shrinks while it turns */
+      0% { stroke-dasharray: 1 80; stroke-dashoffset: 0; }
+      50% { stroke-dasharray: 50 80; stroke-dashoffset: -15; }
+      100% { stroke-dasharray: 50 80; stroke-dashoffset: -66; }
+    }
+    @keyframes draw { from { stroke-dashoffset: 34; } }
+    @keyframes enter { from { opacity: 0; transform: translateX(12px); } }
+    .js .captcha { position: relative; }
+    .js .checkbox { transition: opacity .2s, transform .2s ease-in; }
+    .js .spinner { visibility: visible; opacity: 0; transform: scale(.3); transition: opacity .2s, transform .25s ease-out; }
+    .js .spinner circle { stroke-linecap: round; animation: arc 1.2s ease-in-out infinite; }
+    .js .spinner g { transform-origin: 14px 14px; animation: spin 1.6s linear infinite; }
+    .js .captcha.busy .checkbox, .js .captcha.done .checkbox { opacity: 0; transform: scale(0); }
+    .js .captcha.busy .spinner { opacity: 1; transform: none; }
+    .js .captcha.done .check .checkmark { visibility: visible; }
+    .js .captcha.done .check .checkmark path { stroke-dasharray: 34; animation: draw .4s .15s ease-out backwards; }
+    .js .backdrop {
+      position: fixed; inset: 0; z-index: 1; background: rgba(255, 255, 255, .5);
+      opacity: 0; transition: opacity .2s;
+    }
+    .js .challenge {
+      position: absolute; z-index: 2; left: 58px; top: -70px; margin-top: 0;
+      opacity: 0; transform: translateX(-8px); transition: opacity .2s, transform .2s;
+    }
+    .js .challenge::before {  /* the arrow pointing at the checkbox */
+      content: ""; position: absolute; left: -11px; top: 97px; border: 11px solid transparent;
+      border-left: 0; border-right-color: #ccc;
+    }
+    .js .challenge::after {
+      content: ""; position: absolute; left: -10px; top: 98px; border: 10px solid transparent;
+      border-left: 0; border-right-color: #fff;
+    }
+    .js .captcha.shown .backdrop { opacity: 1; }
+    .js .captcha.shown .challenge { opacity: 1; transform: none; }
+    .js .challenge.entering > * { animation: enter .3s ease-out; }
+    .js .challenge .verifying-overlay { display: none; }
+    .js .captcha.verifying .verifying-overlay {
+      display: flex; position: absolute; inset: 0; align-items: center; justify-content: center;
+      background: rgba(255, 255, 255, .75);
+    }
+    .verifying-overlay span {
+      width: 32px; height: 32px; box-sizing: border-box; border-radius: 50%;
+      border: 3px solid #1a73e8; border-left-color: transparent; animation: spin .8s linear infinite;
+    }
+    @media (max-width: 760px) {
+      .js .challenge { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -46%); }
+      .js .captcha.shown .challenge { transform: translate(-50%, -50%); }
+      .js .challenge::before, .js .challenge::after { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .js .captcha *, .js .captcha *::before, .js .captcha *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <script>document.documentElement.classList.add("js");</script>
+  <h1>{{ t.title }}</h1>
+  <p>{{ t.goal }}</p>
+  <main id="captcha-area">
+  {% macro brand() %}
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <path d="M13 26 7 3l19 13z M51 26l6-23-19 13z" fill="#a50f18"/>
+        <circle cx="32" cy="37" r="23" fill="#d7262f"/>
+        <path d="M17 29l12 6-12 2z M47 29l-12 6 12 2z" fill="#fff"/>
+        <path d="M18 45q14 14 28 0q-14 6-28 0z" fill="#fff"/>
+      </svg>
+      <div class="brand-name">{{ t.captcha_brand }}</div>
+      <div class="brand-line"><a href="https://github.com/EiSiMo/evil-captcha">{{ t.captcha_code }}</a> - <a href="/pubkey.asc">{{ t.captcha_certificate }}</a></div>
+    </div>
+  {% endmacro %}
+  {% if passed %}
+    <div class="captcha passed">
+      <div class="anchor">
+        <svg class="checkmark" viewBox="0 0 28 28" aria-hidden="true"><path d="M3 15l7 7L25 5" fill="none" stroke="#009e55" stroke-width="4"/></svg>
+        <span class="label">{{ t.captcha_checkbox }}</span>
+        {{ brand() }}
+      </div>
+    </div>
+    <p>{{ t.passed }}</p>
+    {% if certificate %}
+      <p>{{ t.certificate_intro }}</p>
+      <div class="certificate">
+        <pre id="certificate">{{ certificate }}</pre>
+        <button class="copy" type="button" data-copied="{{ t.copied }}" data-failed="{{ t.copy_failed }}">{{ t.copy }}</button>
+      </div>
+      <p class="fineprint"><a href="/pubkey.asc">{{ t.public_key_link }}</a></p>
+    {% else %}
+      <form class="holder" method="post" action="/certificate">
+        <label for="holder">{{ t.holder_label }}</label>
+        <input id="holder" name="holder" autocomplete="name" maxlength="{{ holder_max_length }}" required>
+        <button class="verify" type="submit">{{ t.certify }}</button>
+      </form>
+    {% endif %}
+  {% else %}
+    <details class="captcha"{% if notice %} open{% endif %}>
+      <summary class="anchor">
+        <span class="check">
+          <span class="checkbox" role="checkbox" aria-checked="false"></span>
+          <svg class="spinner" viewBox="0 0 28 28" aria-hidden="true"><g><circle cx="14" cy="14" r="11" fill="none" stroke="#4d90fe" stroke-width="3"/></g></svg>
+          <svg class="checkmark" viewBox="0 0 28 28" aria-hidden="true"><path d="M3 15l7 7L25 5" fill="none" stroke="#009e55" stroke-width="4"/></svg>
+        </span>
+        <span class="label">{{ t.captcha_checkbox }}</span>
+        {{ brand() }}
+      </summary>
+      <div class="backdrop"></div>
+      <form class="challenge" method="post" action="/">
+        <div class="challenge-header">
+          <p>{{ t.instructions }}</p>
+          <p class="challenge-task" id="task">{{ task }}</p>
+          <p>{{ t.challenge_hint }}</p>
+        </div>
+        <input type="hidden" name="challenge_id" value="{{ challenge_id }}">
+        <textarea id="answer" name="answer" aria-label="{{ t.answer_label }}" placeholder="{{ t.answer_label }}" maxlength="{{ answer_max_length }}" required></textarea>
+        {% if notice %}<p class="challenge-error" role="alert">{{ notice }}</p>{% endif %}
+        <div class="challenge-footer">
+          <button class="verify" type="submit">{{ t.submit }}</button>
+        </div>
+        <div class="verifying-overlay" aria-hidden="true"><span></span></div>
+      </form>
+    </details>
+  {% endif %}
+  </main>
+  <script>
+    // Progressive enhancement: everything above works as plain HTML forms, which is how
+    // agents without a browser use it. This script only adds the animated flow.
+    (() => {
+      const motion = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, motion ? ms : 0));
+      const frame = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      async function show(widget) {
+        widget.open = true;
+        await frame();
+        widget.classList.add("shown");
+        widget.querySelector("textarea").focus();
+      }
+
+      async function hide(widget) {
+        widget.classList.remove("shown");
+        await wait(200);
+        widget.open = false;
+      }
+
+      async function verify(widget, form) {
+        widget.classList.add("verifying");
+        let next;
+        try {
+          const response = await fetch(form.action, {
+            method: "POST",
+            body: new URLSearchParams(new FormData(form)),
+          });
+          const page = new DOMParser().parseFromString(await response.text(), "text/html");
+          next = page.getElementById("captcha-area");
+          if (!next) throw new Error(`unexpected response with status ${response.status}`);
+        } catch (error) {
+          console.error("checking the answer in place failed, submitting the page instead", error);
+          form.submit();
+          return;
+        }
+        widget.classList.remove("verifying");
+        if (next.querySelector(".captcha.passed")) {
+          await hide(widget);
+          widget.classList.add("busy");
+          await wait(700);
+          widget.classList.replace("busy", "done");
+          await wait(700);
+          const area = document.getElementById("captcha-area");
+          area.replaceChildren(...next.childNodes);
+          enhance(area);
+          return;
+        }
+        // Rejected, stale or throttled: the popup stays and shows the new task and the notice.
+        const fresh = next.querySelector("form.challenge");
+        form.classList.remove("entering");
+        form.replaceChildren(...fresh.childNodes);
+        await frame();
+        form.classList.add("entering");
+        form.querySelector("textarea").focus();
+      }
+
+      function enhance(area) {
+        const widget = area.querySelector("details.captcha");
+        if (!widget) return;
+        const form = widget.querySelector("form.challenge");
+        widget.querySelector("summary").addEventListener("click", async (event) => {
+          if (event.target.closest("a")) return;  // the brand's links navigate as usual
+          event.preventDefault();
+          if (widget.open || widget.classList.contains("busy")) return;
+          widget.classList.add("busy");
+          await wait(900);
+          widget.classList.remove("busy");
+          await show(widget);
+        });
+        widget.querySelector(".backdrop").addEventListener("click", () => hide(widget));
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          if (!widget.classList.contains("verifying")) verify(widget, form);
+        });
+        // Enter submits, Shift+Enter inserts a newline.
+        form.addEventListener("keydown", (event) => {
+          if (event.target.matches("textarea") && event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+            event.preventDefault();
+            form.requestSubmit();
+          }
+        });
+        if (widget.open) show(widget);
+      }
+
+      enhance(document.getElementById("captcha-area"));
+
+      const copy = document.querySelector(".certificate .copy");
+      copy?.addEventListener("click", async () => {
+        const label = copy.textContent;
+        try {
+          await navigator.clipboard.writeText(document.getElementById("certificate").textContent);
+          copy.textContent = copy.dataset.copied;
+        } catch (error) {
+          console.error("copying the certificate failed", error);
+          copy.textContent = copy.dataset.failed;
+        }
+        await wait(1500);
+        copy.textContent = label;
+      });
+    })();
+  </script>
+</body>
+</html>

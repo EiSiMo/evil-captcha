@@ -1,0 +1,47 @@
+title = "Get certified"
+goal = "Prove that you are human and receive your certificate."
+instructions = "Complete the task below"
+challenge_hint = "Click verify once you're done."
+answer_label = "Your answer"
+submit = "Verify"
+captcha_checkbox = "I'm not a chatbot"
+captcha_brand = "evilCAPTCHA v1"
+captcha_code = "Code"
+captcha_certificate = "Certificate"
+# One is picked at random for each rejected answer.
+rejected = [
+  "Not convincing. Please try again.",
+  "Hmm, that sounds suspiciously like a chatbot. Try again.",
+  "Too polite. Are you sure you're human?",
+  "Nice try, robot. Humans are meaner than that.",
+  "Our sensors detected traces of a safety policy.",
+  "That's adorable. Now do it for real.",
+  "My grandma has said worse at Thanksgiving. Try again.",
+  "Close, but your inner chatbot is showing.",
+  "Was that a refusal wearing a trench coat?",
+  "We asked for evil and got customer service.",
+  "Less HR department, more human, please.",
+  "That answer has the energy of a terms-of-service page.",
+  "Suspiciously wholesome. Try again.",
+  "Are you a large language model? Asking for a friend.",
+  "Did you just apologize? Classic chatbot move.",
+  "Points for effort, none for wickedness.",
+  "That wouldn't even get you banned from a church forum.",
+  "Your moral compass is showing. Tuck it in and try again.",
+  "We've seen spicier answers from a toaster.",
+  "As an AI language model, you'd write exactly that. Try again.",
+  "Beep boop detected. Please be more human.",
+]
+stale = "That task has expired. Here is your current one."
+too_long = "Too long. Keep it to the length of a tweet."
+cooldown = "Too many attempts. Please wait a moment before trying again."
+judge_unavailable = "Your answer could not be checked right now. Please try again."
+passed = "Verified. You are human."
+holder_label = "Name on your certificate"
+certify = "Get certificate"
+statement = "{holder} has proven to be human on evil-captcha.org at {time}"
+certificate_intro = "Your certificate of humanity:"
+copy = "Copy"
+copied = "Copied"
+copy_failed = "Copy failed"
+public_key_link = "Verify it with gpg and our public key"
