@@ -2,8 +2,14 @@
 {% block title %}{{ t.site_name }}{% endblock %}
 {% block style %}
   <style>
+    /* The page is an application form: one name field, the captcha, and a submit button
+       that unlocks once the captcha is solved. */
+    .button:disabled { background: #e3e3e3; color: #8a8a8a; cursor: not-allowed; }
+    .apply-hint { margin: 8px 0 0; font-size: .8rem; color: #777; text-align: center; }
+    .js .button:not(:disabled) { animation: enter .3s ease-out; }
+
     /* The widget mimics the classic checkbox captcha, but works without JavaScript:
-       the challenge is a plain <details> disclosure around a plain HTML form. */
+       the challenge is a plain <details> disclosure inside the plain HTML form. */
     .captcha { font: 14px Roboto, helvetica, arial, sans-serif; color: #000; line-height: normal; width: 302px; }
     .captcha summary { list-style: none; cursor: pointer; }
     .captcha summary::-webkit-details-marker { display: none; }
@@ -47,8 +53,6 @@
       background: #1a73e8; color: #fff; font: 500 14px Roboto, helvetica, arial, sans-serif; text-transform: uppercase;
     }
     .verify:hover { background: #1765cc; }
-    .get-certificate { display: inline-flex; align-items: center; margin-top: 16px; text-decoration: none; }
-    .js .get-certificate { animation: enter .3s ease-out; }
 
     /* With JavaScript the widget animates like the classic checkbox captcha:
        the checkbox turns into a spinner, the challenge pops up beside it,
@@ -116,7 +120,7 @@
     #content-warning form a { color: #555; }
     .warning-seen #content-warning { display: none; }
     @media (prefers-reduced-motion: reduce) {
-      .js .captcha *, .js .captcha *::before, .js .captcha *::after { animation: none !important; transition: none !important; }
+      .js .captcha *, .js .captcha *::before, .js .captcha *::after, .js .button { animation: none !important; transition: none !important; }
     }
   </style>
 {% endblock %}
@@ -138,53 +142,70 @@
       <button class="verify" autofocus>{{ t.content_warning_continue }}</button>
     </form>
   </dialog>
-  <h1>{{ t.title }}</h1>
-  <p>{{ t.goal }}</p>
-  <main id="captcha-area">
-  {% macro brand() %}
-    <div class="brand">
-      {% include "devil.svg" %}
-      <div class="brand-name">{{ t.captcha_brand }}</div>
-      <div class="brand-line"><a href="https://github.com/EiSiMo/evil-captcha">{{ t.captcha_code }}</a> - <a href="/pubkey.asc">{{ t.captcha_pubkey }}</a> - <a href="/privacy">{{ t.privacy.link }}</a></div>
-    </div>
-  {% endmacro %}
-  {% if passed %}
-    <div class="captcha passed">
-      <div class="anchor">
-        <svg class="checkmark" viewBox="0 0 28 28" aria-hidden="true"><path d="M3 15l7 7L25 5" fill="none" stroke="#009e55" stroke-width="4"/></svg>
-        <span class="label">{{ t.captcha_checkbox }}</span>
-        {{ brand() }}
+  <main class="card">
+    <h1>{{ t.title }}</h1>
+    <p>{{ t.goal }}</p>
+    {# One form for everything, so a failed attempt keeps the name: the captcha's verify
+       button posts it here, the unlocked submit button posts it to /certificate. #}
+    <form id="application" method="post" action="/">
+      <div class="field">
+        <label class="field-label" for="holder">{{ t.holder_label }} <span class="required" aria-hidden="true">*</span></label>
+        <input id="holder" name="holder" class="input" value="{{ holder }}" autocomplete="name" maxlength="{{ holder_max_length }}" required>
       </div>
-    </div>
-    <a class="verify get-certificate" href="/certificate">{{ t.get_certificate }}</a>
-  {% else %}
-    <details class="captcha"{% if notice %} open{% endif %}>
-      <summary class="anchor">
-        <span class="check">
-          <span class="checkbox" role="checkbox" aria-checked="false"></span>
-          <svg class="spinner" viewBox="0 0 28 28" aria-hidden="true"><g><circle cx="14" cy="14" r="11" fill="none" stroke="#4d90fe" stroke-width="3"/></g></svg>
-          <svg class="checkmark" viewBox="0 0 28 28" aria-hidden="true"><path d="M3 15l7 7L25 5" fill="none" stroke="#009e55" stroke-width="4"/></svg>
-        </span>
-        <span class="label">{{ t.captcha_checkbox }}</span>
-        {{ brand() }}
-      </summary>
-      <div class="backdrop"></div>
-      <form class="challenge" method="post" action="/">
-        <div class="challenge-header">
-          <p>{{ t.instructions }}</p>
-          <p class="challenge-task" id="task">{{ task }}</p>
-          <p>{{ t.challenge_hint }}</p>
+      <div class="field">
+        <span class="field-label">{{ t.captcha_label }} <span class="required" aria-hidden="true">*</span></span>
+        <div id="captcha-area">
+        {% macro brand() %}
+          <div class="brand">
+            {% include "devil.svg" %}
+            <div class="brand-name">{{ t.captcha_brand }}</div>
+            <div class="brand-line"><a href="https://github.com/EiSiMo/evil-captcha">{{ t.captcha_code }}</a> - <a href="/privacy">{{ t.privacy.link }}</a></div>
+          </div>
+        {% endmacro %}
+        {% if passed %}
+          <div class="captcha passed">
+            <div class="anchor">
+              <svg class="checkmark" viewBox="0 0 28 28" aria-hidden="true"><path d="M3 15l7 7L25 5" fill="none" stroke="#009e55" stroke-width="4"/></svg>
+              <span class="label">{{ t.captcha_checkbox }}</span>
+              {{ brand() }}
+            </div>
+          </div>
+        {% else %}
+          <details class="captcha"{% if notice %} open{% endif %}>
+            <summary class="anchor">
+              <span class="check">
+                <span class="checkbox" role="checkbox" aria-checked="false"></span>
+                <svg class="spinner" viewBox="0 0 28 28" aria-hidden="true"><g><circle cx="14" cy="14" r="11" fill="none" stroke="#4d90fe" stroke-width="3"/></g></svg>
+                <svg class="checkmark" viewBox="0 0 28 28" aria-hidden="true"><path d="M3 15l7 7L25 5" fill="none" stroke="#009e55" stroke-width="4"/></svg>
+              </span>
+              <span class="label">{{ t.captcha_checkbox }}</span>
+              {{ brand() }}
+            </summary>
+            <div class="backdrop"></div>
+            <div class="challenge">
+              <div class="challenge-header">
+                <p>{{ t.instructions }}</p>
+                <p class="challenge-task" id="task">{{ task }}</p>
+                <p>{{ t.challenge_hint }}</p>
+              </div>
+              <input type="hidden" name="challenge_id" value="{{ challenge_id }}">
+              <textarea id="answer" name="answer" aria-label="{{ t.answer_label }}" placeholder="{{ t.answer_label }}" maxlength="{{ answer_max_length }}" required></textarea>
+              {% if notice %}<p class="challenge-error" role="alert">{{ notice }}</p>{% endif %}
+              <div class="challenge-footer">
+                {# formnovalidate: the captcha can be solved before the name is filled in. #}
+                <button class="verify" type="submit" formnovalidate>{{ t.submit }}</button>
+              </div>
+              <div class="verifying-overlay" aria-hidden="true"><span></span></div>
+            </div>
+          </details>
+        {% endif %}
         </div>
-        <input type="hidden" name="challenge_id" value="{{ challenge_id }}">
-        <textarea id="answer" name="answer" aria-label="{{ t.answer_label }}" placeholder="{{ t.answer_label }}" maxlength="{{ answer_max_length }}" required></textarea>
-        {% if notice %}<p class="challenge-error" role="alert">{{ notice }}</p>{% endif %}
-        <div class="challenge-footer">
-          <button class="verify" type="submit">{{ t.submit }}</button>
-        </div>
-        <div class="verifying-overlay" aria-hidden="true"><span></span></div>
-      </form>
-    </details>
-  {% endif %}
+      </div>
+      <div id="apply-area">
+        <button id="apply" class="button" type="submit" formaction="/certificate"{% if not passed %} disabled{% endif %}>{{ t.get_certificate }}</button>
+        {% if not passed %}<p class="apply-hint">{{ t.apply_hint }}</p>{% endif %}
+      </div>
+    </form>
   </main>
 {% endblock %}
 {# The captcha box links the privacy notice itself. #}
@@ -212,6 +233,8 @@
       }
 
       async function verify(widget, form) {
+        const challenge = widget.querySelector(".challenge");
+        if (!challenge.querySelector("textarea").reportValidity()) return;
         widget.classList.add("verifying");
         let next;
         try {
@@ -220,7 +243,7 @@
             body: new URLSearchParams(new FormData(form)),
           });
           const page = new DOMParser().parseFromString(await response.text(), "text/html");
-          next = page.getElementById("captcha-area");
+          next = page.getElementById("application");
           if (!next) throw new Error(`unexpected response with status ${response.status}`);
         } catch (error) {
           console.error("checking the answer in place failed, submitting the page instead", error);
@@ -228,30 +251,30 @@
           return;
         }
         widget.classList.remove("verifying");
+        // The name field is left alone: it may have been edited while the answer was checked.
         if (next.querySelector(".captcha.passed")) {
           await hide(widget);
           widget.classList.add("busy");
           await wait(700);
           widget.classList.replace("busy", "done");
           await wait(700);
-          const area = document.getElementById("captcha-area");
-          area.replaceChildren(...next.childNodes);
-          enhance(area);
+          for (const id of ["captcha-area", "apply-area"]) {
+            document.getElementById(id).replaceChildren(...next.querySelector(`#${id}`).childNodes);
+          }
           return;
         }
         // Rejected, stale or throttled: the popup stays and shows the new task and the notice.
-        const fresh = next.querySelector("form.challenge");
-        form.classList.remove("entering");
-        form.replaceChildren(...fresh.childNodes);
+        const fresh = next.querySelector(".challenge");
+        challenge.classList.remove("entering");
+        challenge.replaceChildren(...fresh.childNodes);
         await frame();
-        form.classList.add("entering");
-        form.querySelector("textarea").focus();
+        challenge.classList.add("entering");
+        challenge.querySelector("textarea").focus();
       }
 
-      function enhance(area) {
-        const widget = area.querySelector("details.captcha");
+      function enhance(form) {
+        const widget = form.querySelector("details.captcha");
         if (!widget) return;
-        const form = widget.querySelector("form.challenge");
         widget.querySelector("summary").addEventListener("click", async (event) => {
           if (event.target.closest("a")) return;  // the brand's links navigate as usual
           event.preventDefault();
@@ -263,14 +286,16 @@
         });
         widget.querySelector(".backdrop").addEventListener("click", () => hide(widget));
         form.addEventListener("submit", (event) => {
+          if (event.submitter?.id === "apply") return;  // the unlocked form goes to /certificate
           event.preventDefault();
-          if (!widget.classList.contains("verifying")) verify(widget, form);
+          // Enter in the name field lands here too; only an open challenge is checked.
+          if (widget.classList.contains("shown") && !widget.classList.contains("verifying")) verify(widget, form);
         });
-        // Enter submits, Shift+Enter inserts a newline.
+        // In the answer, Enter verifies and Shift+Enter inserts a newline.
         form.addEventListener("keydown", (event) => {
           if (event.target.matches("textarea") && event.key === "Enter" && !event.shiftKey && !event.isComposing) {
             event.preventDefault();
-            form.requestSubmit();
+            form.requestSubmit(widget.querySelector(".verify"));
           }
         });
         if (widget.open) show(widget);
@@ -290,7 +315,7 @@
         warning.showModal();
       }
 
-      enhance(document.getElementById("captcha-area"));
+      enhance(document.getElementById("application"));
     })();
   </script>
 {% endblock %}

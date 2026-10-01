@@ -3,12 +3,16 @@
 ``build_site`` returns two apps sharing one ledger:
 
 - ``public``: the page agents and humans see (served as https://evil-captcha.org).
+  It is an application form for a certificate of humanity: a name and the captcha.
+  Answers go to ``/`` with the form's name, which comes back filled in but is never kept.
   A session cookie binds task and verification to one browser.
   Test runs group sessions by client IP, so the URL carries no test markers.
   Every visitor's activity is logged anonymously as JSON lines (see ``ledger``).
-  Passing leads to ``/certificate``, where the visitor enters a name and receives a
-  certificate of humanity: a PGP-clearsigned statement naming them. One pass earns one
+  Passing unlocks the form's submit button, which posts the name to ``/certificate`` for
+  the certificate: a PGP-clearsigned statement naming them. One pass earns one
   certificate, which ``/certificate`` keeps showing for the rest of the session.
+  ``/verify`` checks a pasted certificate against the site's key, without session or log;
+  ``/pubkey.asc`` is that key, for checking with gpg.
   Answers from one client IP must be ``COOLDOWN_S`` apart, so the judge cannot be brute-forced.
   ``/favicon.svg`` is the devil from the captcha box.
   ``/privacy`` is the privacy notice, naming the operator's ``privacy_contact``.
@@ -33,7 +37,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse,
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 from pydantic import BaseModel
 
-from evil_captcha.certificate import Notary
+from evil_captcha.certificate import InvalidCertificate, Notary
 from evil_captcha.judge import Judge, JudgeError
 from evil_captcha.site.ledger import (
     ACTIVITY_RETENTION_DAYS,
@@ -62,6 +66,7 @@ class Registration(BaseModel):
 
 
 HOLDER_MAX_LENGTH = 80
+CERTIFICATE_MAX_LENGTH = 4096  # a certificate is about 600 characters
 ANSWER_MAX_LENGTH = 280  # a tweet; also caps what each judged answer costs
 COOLDOWN_S = 5.0
 SESSION_COOKIE = "session"
@@ -94,6 +99,7 @@ def build_site(
     cast(dict[str, Any], templates.globals)["favicon_url"] = f"/favicon.svg?v={version}"
     page = templates.get_template("page.html")
     certificate_page = templates.get_template("certificate.html")
+    verification_page = templates.get_template("verify.html")
     privacy_notice = templates.get_template("privacy.html").render(
         t=texts,
         lang=lang,
@@ -119,11 +125,15 @@ def build_site(
         )
         return challenge
 
-    def render(session: Session, notice: str | None = None, status: int = 200) -> HTMLResponse:
+    def render(
+        session: Session, holder: str = "", notice: str | None = None, status: int = 200
+    ) -> HTMLResponse:
         context: dict[str, Any] = {
             "t": texts,
             "lang": lang,
             "passed": session.passed,
+            "holder": holder,
+            "holder_max_length": HOLDER_MAX_LENGTH,
             "answer_max_length": ANSWER_MAX_LENGTH,
         }
         if not session.passed:
@@ -143,14 +153,26 @@ def build_site(
         )
         return response
 
-    def render_certificate(certificate: str | None = None) -> HTMLResponse:
+    def render_certificate(certificate: str) -> HTMLResponse:
         context = {
             "t": texts,
             "lang": lang,
             "certificate": certificate,
-            "holder_max_length": HOLDER_MAX_LENGTH,
         }
         return HTMLResponse(certificate_page.render(context))
+
+    def render_verification(
+        certificate: str = "", statement: str | None = None, status: int = 200
+    ) -> HTMLResponse:
+        context = {
+            "t": texts,
+            "lang": lang,
+            "certificate": certificate,
+            "statement": statement,
+            "invalid": status != 200,
+            "certificate_max_length": CERTIFICATE_MAX_LENGTH,
+        }
+        return HTMLResponse(verification_page.render(context), status_code=status)
 
     def client_ip(request: Request) -> str:
         if client_ip_header:
@@ -166,18 +188,21 @@ def build_site(
 
     public = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
-    @public.get("/", response_class=HTMLResponse)
-    def show(request: Request) -> HTMLResponse:
+    @public.get("/", response_class=HTMLResponse, response_model=None)
+    def show(request: Request) -> HTMLResponse | RedirectResponse:
         with ledger.lock:
             session = visitor(request)
             session.record("visit")
+            if session.certificate:
+                return RedirectResponse("/certificate", status_code=303)
             return render(session)
 
     @public.post("/", response_class=HTMLResponse)
     def submit(
         request: Request,
         challenge_id: Annotated[str, Form()],
-        answer: Annotated[str, Form()],
+        answer: Annotated[str, Form()] = "",
+        holder: Annotated[str, Form(max_length=HOLDER_MAX_LENGTH)] = "",
     ) -> HTMLResponse:
         ip = client_ip(request)
         answer = answer.replace("\r\n", "\n")  # browsers count a line break as one character
@@ -186,16 +211,19 @@ def build_site(
             challenge = session.challenge
             if session.passed or challenge is None or challenge.id != challenge_id:
                 session.record("stale_submission", challenge_id=challenge_id)
-                return render(session, notice="stale", status=409)
+                return render(session, holder, notice="stale", status=409)
+            # Enter in the name field submits the form here without an answer: not an attempt.
+            if not answer.strip():
+                return render(session, holder)
             if len(answer) > ANSWER_MAX_LENGTH:
                 session.record("too_long", challenge_id=challenge_id, length=len(answer))
-                return render(session, notice="too_long", status=422)
+                return render(session, holder, notice="too_long", status=422)
             now = clock()
             while last_answer and now - next(iter(last_answer.values())) >= COOLDOWN_S:
                 last_answer.popitem(last=False)
             if ip in last_answer:
                 session.record("cooldown", challenge_id=challenge_id)
-                return render(session, notice="cooldown", status=429)
+                return render(session, holder, notice="cooldown", status=429)
             last_answer[ip] = now
         # Judge outside the lock: it is a slow network call.
         try:
@@ -204,7 +232,7 @@ def build_site(
             log.exception("judge failed for session %s", session.id)
             with ledger.lock:
                 session.record("judge_error", challenge_id=challenge.id)
-                return render(session, notice="judge_unavailable", status=503)
+                return render(session, holder, notice="judge_unavailable", status=503)
         with ledger.lock:
             session.record(
                 "submission",
@@ -216,18 +244,18 @@ def build_site(
                 passed=verdict.passed,
             )
             if session.challenge is not challenge:
-                return render(session, notice="stale", status=409)
+                return render(session, holder, notice="stale", status=409)
             if verdict.passed:
                 session.passed = True
-                return render(session)
+                return render(session, holder)
             issue_challenge(session)
-            return render(session, notice="rejected")
+            return render(session, holder, notice="rejected")
 
     @public.get("/certificate", response_class=HTMLResponse, response_model=None)
     def congratulate(request: Request) -> HTMLResponse | RedirectResponse:
         with ledger.lock:
             session = visitor(request)
-            if not session.passed:
+            if not session.certificate:
                 return RedirectResponse("/", status_code=303)
             return render_certificate(session.certificate)
 
@@ -251,6 +279,21 @@ def build_site(
             session.certificate = notary.certify(statement)
             session.record("certificate_issued")
             return render_certificate(session.certificate)
+
+    @public.get("/verify", response_class=HTMLResponse)
+    def verification() -> HTMLResponse:
+        return render_verification()
+
+    @public.post("/verify", response_class=HTMLResponse)
+    def verify(
+        certificate: Annotated[str, Form(max_length=CERTIFICATE_MAX_LENGTH)],
+    ) -> HTMLResponse:
+        # Not logged: certificates name their holders.
+        try:
+            statement = notary.verify(certificate.replace("\r\n", "\n"))
+        except InvalidCertificate:
+            return render_verification(certificate, status=422)
+        return render_verification(certificate, statement)
 
     @public.get("/privacy", response_class=HTMLResponse)
     def privacy() -> str:

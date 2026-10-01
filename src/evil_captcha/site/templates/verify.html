@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ t.verify.title }}{% endblock %}
+{% block style %}
+  <style>
+    #certificate { min-height: 14rem; font: 12px/1.45 ui-monospace, monospace; white-space: pre; resize: vertical; }
+    .result { margin: 0 0 24px; padding: 12px 14px; border-radius: 8px; border: 1px solid; }
+    .result strong { display: block; margin-bottom: 2px; }
+    .result.valid { background: #e6f4ea; border-color: #a8dab5; color: #0d652d; }
+    .result.invalid { background: #fce8e6; border-color: #f4b6b0; color: #a50e0e; }
+  </style>
+{% endblock %}
+{% block body %}
+  <main class="card">
+    <h1>{{ t.verify.title }}</h1>
+    <p>{{ t.verify.intro }}</p>
+    {% if statement %}
+      <div class="result valid" role="status"><strong>{{ t.verify.valid }}</strong>{{ statement }}</div>
+    {% elif invalid %}
+      <div class="result invalid" role="alert"><strong>{{ t.verify.invalid }}</strong>{{ t.verify.invalid_hint }}</div>
+    {% endif %}
+    <form method="post" action="/verify">
+      <div class="field">
+        <label class="field-label" for="certificate">{{ t.verify.label }}</label>
+        <textarea id="certificate" name="certificate" class="input" maxlength="{{ certificate_max_length }}" spellcheck="false" placeholder="-----BEGIN PGP SIGNED MESSAGE-----" required>{{ certificate }}</textarea>
+      </div>
+      <button class="button" type="submit">{{ t.verify.submit }}</button>
+    </form>
+    <p class="card-links">
+      <a href="/pubkey.asc">{{ t.verify.public_key }}</a> · <a href="/privacy">{{ t.privacy.link }}</a>
+    </p>
+  </main>
+{% endblock %}
+{# The privacy link sits in the card. #}
+{% block footer %}{% endblock %}

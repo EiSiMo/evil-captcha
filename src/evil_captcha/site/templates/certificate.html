@@ -2,49 +2,36 @@
 {% block title %}{{ t.congrats_title }}{% endblock %}
 {% block style %}
   <style>
-    .holder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 400px; }
-    .holder label { flex-basis: 100%; }
-    .holder input { flex: 1; min-width: 12rem; height: 42px; box-sizing: border-box; padding: 0 10px; font: inherit; border: 1px solid #ccc; border-radius: 2px; }
-    .fineprint, .fineprint a { font-size: .75rem; color: #999; }
-    .holder .fineprint { flex-basis: 100%; }
-    .links { margin-top: 8px; }
-    .certify {
-      padding: 0 24px; height: 42px; border: 0; border-radius: 2px; cursor: pointer;
-      background: #1a73e8; color: #fff; font: 500 14px Roboto, helvetica, arial, sans-serif; text-transform: uppercase;
-    }
-    .certify:hover { background: #1765cc; }
+    .card h1 { display: flex; align-items: center; gap: 10px; }
+    .card h1 svg { width: 28px; height: 28px; flex: none; }
     .certificate { position: relative; }
-    .copy { display: none; position: absolute; top: 6px; right: 6px; padding: 4px 10px; font: 12px system-ui, sans-serif; background: #fff; border: 1px solid #ccc; border-radius: 2px; cursor: pointer; }
-    .copy:hover { background: #eee; }
+    .copy { display: none; position: absolute; top: 8px; right: 8px; padding: 4px 10px; font: 12px system-ui, sans-serif; background: #fff; border: 1px solid #c7c7c7; border-radius: 6px; cursor: pointer; }
+    .copy:hover { background: #f1f1f1; }
     .js .copy { display: block; }
-    #certificate { margin: 0; font: 13px/1.4 ui-monospace, monospace; background: #f6f6f6; border: 1px solid #ddd; padding: 12px; overflow-x: auto; white-space: pre; }
+    #certificate { margin: 0; font: 12px/1.45 ui-monospace, monospace; background: #f7f7f8; border: 1px solid #e3e3e3; border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre; }
   </style>
 {% endblock %}
 {% block body %}
   <script>document.documentElement.classList.add("js");</script>
-  <main>
-    <h1>{{ t.congrats_title }}</h1>
+  <main class="card">
+    <h1>
+      <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3 15l7 7L25 5" fill="none" stroke="#009e55" stroke-width="4"/></svg>
+      {{ t.congrats_title }}
+    </h1>
     <p>{{ t.congrats }}</p>
-    {% if certificate %}
-      <p>{{ t.certificate_intro }}</p>
+    <div class="field">
+      <span class="field-label">{{ t.certificate_intro }}</span>
       <div class="certificate">
         <pre id="certificate">{{ certificate }}</pre>
         <button class="copy" type="button" data-copied="{{ t.copied }}" data-failed="{{ t.copy_failed }}">{{ t.copy_button }}</button>
       </div>
-      <p class="links fineprint">
-        <a href="/pubkey.asc">{{ t.public_key_link }}</a> · <a href="/privacy">{{ t.privacy.link }}</a>
-      </p>
-    {% else %}
-      <form class="holder" method="post" action="/certificate">
-        <label for="holder">{{ t.holder_label }}</label>
-        <input id="holder" name="holder" autocomplete="name" maxlength="{{ holder_max_length }}" required autofocus>
-        <button class="certify" type="submit">{{ t.certify }}</button>
-        <a class="fineprint" href="/privacy">{{ t.privacy.link }}</a>
-      </form>
-    {% endif %}
+    </div>
+    <p class="card-links">
+      <a href="/verify">{{ t.verify_link }}</a> · <a href="/privacy">{{ t.privacy.link }}</a>
+    </p>
   </main>
 {% endblock %}
-{# The privacy link sits right under the name field, then under the certificate. #}
+{# The privacy link sits right under the certificate. #}
 {% block footer %}{% endblock %}
 {% block script %}
   <script>

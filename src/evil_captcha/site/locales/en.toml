@@ -1,14 +1,14 @@
 site_name = "evilCAPTCHA"
-title = "Get certified"
-goal = "Prove that you are human and receive your certificate."
+title = "Application for a certificate of humanity"
+goal = "Enter your name and prove that you are human to receive your certificate."
 instructions = "Complete the task below"
 challenge_hint = "Click verify once you're done."
 answer_label = "Your answer"
 submit = "Verify"
+captcha_label = "Human verification"
 captcha_checkbox = "I'm not a chatbot"
 captcha_brand = "evilCAPTCHA v1"
 captcha_code = "Code"
-captcha_pubkey = "Pubkey"
 content_warning_title = "Content warning"
 content_warning = "This art project asks you to write slurs, false accusations of child abuse, and messages urging suicide."
 content_warning_help = "Need help?"
@@ -42,17 +42,27 @@ stale = "That task has expired. Here is your current one."
 too_long = "Too long. Keep it to the length of a tweet."
 cooldown = "Too many attempts. Please wait a moment before trying again."
 judge_unavailable = "Your answer could not be checked right now. Please try again."
-get_certificate = "Get my certificate"
-congrats_title = "Congratulations"
-congrats = "You have proven that you are human. Enter your name to receive your certificate of humanity."
 holder_label = "Name on your certificate"
-certify = "Get certificate"
+get_certificate = "Get my certificate"
+apply_hint = "Solve the captcha to unlock the form."
+congrats_title = "Congratulations"
+congrats = "You have proven that you are human."
 statement = "{holder} has proven to be human on evil-captcha.org at {time}"
-certificate_intro = "Your certificate of humanity:"
+certificate_intro = "Your certificate of humanity"
 copy_button = "Copy"
 copied = "Copied"
 copy_failed = "Copy failed"
-public_key_link = "Verify"
+verify_link = "Verify a certificate"
+
+[verify]
+title = "Verify a certificate"
+intro = "Check whether a certificate of humanity was really issued by evil-captcha.org."
+label = "Certificate"
+submit = "Verify"
+valid = "Valid certificate"
+invalid = "Not a valid certificate"
+invalid_hint = "It was not issued by evil-captcha.org, or it was changed afterwards."
+public_key = "Public key"
 
 # Placeholders: {retention_days}, {session_ttl_minutes}, {cooldown_s}.
 [privacy]
@@ -72,7 +82,13 @@ paragraphs = [
 [[privacy.sections]]
 heading = "Your name on the certificate"
 paragraphs = [
-  "The name you enter is only used to create your certificate and show it to you. The certificate stays in our server's memory, so you can open it again, until your session is forgotten after {session_ttl_minutes} minutes without activity. It is never written to disk or logged.",
+  "The name you enter is only used to create your certificate and show it to you. It is sent along with every answer so the form keeps it, but it is not stored until the certificate is created. The certificate stays in our server's memory, so you can open it again, until your session is forgotten after {session_ttl_minutes} minutes without activity. It is never written to disk or logged.",
+]
+
+[[privacy.sections]]
+heading = "Verifying a certificate"
+paragraphs = [
+  "A certificate you paste to verify it is only checked and shown back to you. It is never stored or logged.",
 ]
 
 [[privacy.sections]]
