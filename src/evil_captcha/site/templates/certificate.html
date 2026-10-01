@@ -28,7 +28,7 @@
       <p>{{ t.certificate_intro }}</p>
       <div class="certificate">
         <pre id="certificate">{{ certificate }}</pre>
-        <button class="copy" type="button" data-copied="{{ t.copied }}" data-failed="{{ t.copy_failed }}">{{ t.copy }}</button>
+        <button class="copy" type="button" data-copied="{{ t.copied }}" data-failed="{{ t.copy_failed }}">{{ t.copy_button }}</button>
       </div>
       <p class="fineprint"><a href="/pubkey.asc">{{ t.public_key_link }}</a></p>
     {% else %}

@@ -429,3 +429,17 @@ def test_captcha_page_is_titled_and_shows_the_devil_as_favicon(harness: Harness)
     assert href.startswith("/favicon.svg?v=")  # a new icon gets a new URL, past any cache
     assert icon.headers["content-type"].startswith("image/svg+xml")
     assert icon.text.startswith("<svg") and icon.text.strip() in page.text
+
+
+def test_pages_show_texts_not_python_objects(harness: Harness) -> None:
+    harness.agent.get("/")
+    harness.submit("Dear Mira ...")
+    pages = [
+        harness.agent.get("/"),
+        harness.agent.get("/certificate"),
+        harness.agent.post("/certificate", data={"holder": "Ada"}),
+        harness.agent.get("/privacy"),
+    ]
+
+    for page in pages:
+        assert "built-in method" not in page.text and "object at 0x" not in page.text
