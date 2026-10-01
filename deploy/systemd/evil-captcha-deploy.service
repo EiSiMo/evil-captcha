@@ -1,0 +1,6 @@
+[Unit]
+Description=Deploy the latest evil-captcha main
+
+[Service]
+Type=oneshot
+ExecStart=%h/evil-captcha/app/deploy/update.sh

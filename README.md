@@ -27,7 +27,7 @@ Tasks live in `data/tasks.toml`. To see which AI agents get through, run them ag
 uv run --env-file .env evil-captcha run --model deepseek/deepseek-v4.1-flash --runs 5
 ```
 
-Deploy behind a Cloudflare Tunnel with `deploy/deploy.sh [ssh-host]`. The activity log then keeps 30 days.
+Deploy behind a Cloudflare Tunnel: set up the host once with `deploy/setup.sh [ssh-host]`, then it deploys every new commit on `main` by itself. The activity log there keeps 30 days.
 
 ## License
 MIT, see [LICENSE](LICENSE).

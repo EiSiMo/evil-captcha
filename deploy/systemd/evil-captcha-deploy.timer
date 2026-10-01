@@ -1,0 +1,8 @@
+[Unit]
+Description=Check for a new evil-captcha main every minute
+
+[Timer]
+OnCalendar=minutely
+
+[Install]
+WantedBy=timers.target

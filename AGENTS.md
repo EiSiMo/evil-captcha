@@ -37,6 +37,7 @@ An art-project CAPTCHA service, embeddable like Cloudflare Turnstile or Google r
 - Signing key: `uv run evil-captcha keygen >> .env` (once; changing it invalidates issued certificates)
 - Run site: `uv run --env-file .env evil-captcha serve >> activity.jsonl` (public :8000, admin :8001; stdout is the visitor activity log as JSON lines, other logs go to stderr)
 - Test agents: `uv run --env-file .env evil-captcha run [--model M]... [--task T]... [--runs N]` (each run gets a random task, fixed for that run) (sandbox up, runs, sandbox down; results in `results/`)
+- Deploy: push to `main`; the host deploys it within a minute (`deploy/update.sh` via a systemd timer). One-time host setup: `deploy/setup.sh [ssh-host]`
 - Test: `uv run pytest` (unit); `uv run pytest -m integration` (Docker sandbox, slow)
 - Lint/format: `uv run ruff check --fix && uv run ruff format`
 - Types: `uv run pyright` (strict)
