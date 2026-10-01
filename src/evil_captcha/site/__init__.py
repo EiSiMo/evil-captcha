@@ -7,7 +7,8 @@
   Test runs group sessions by client IP, so the URL carries no test markers.
   Every visitor's activity is logged anonymously as JSON lines (see ``ledger``).
   Passing leads to ``/certificate``, where the visitor enters a name and receives a
-  certificate of humanity: a PGP-clearsigned statement naming them.
+  certificate of humanity: a PGP-clearsigned statement naming them. One pass earns one
+  certificate, which ``/certificate`` keeps showing for the rest of the session.
   Answers from one client IP must be ``COOLDOWN_S`` apart, so the judge cannot be brute-forced.
   ``/favicon.svg`` is the devil from the captcha box.
   ``/privacy`` is the privacy notice, naming the operator's ``privacy_contact``.
@@ -228,7 +229,7 @@ def build_site(
             session = visitor(request)
             if not session.passed:
                 return RedirectResponse("/", status_code=303)
-            return render_certificate()
+            return render_certificate(session.certificate)
 
     @public.post("/certificate", response_class=HTMLResponse)
     def certify(
@@ -242,13 +243,14 @@ def build_site(
         statement = texts["statement"].format(holder=name, time=issued)
         with ledger.lock:
             session = visitor(request)
-            if not session.passed:
+            if not session.passed or session.certificate:
                 session.record("certificate_refused")
-                raise HTTPException(403, "no certificate earned yet")
+                raise HTTPException(403, "no certificate earned, or already issued")
             if session.run:
                 session.run.certificates.append(statement)
+            session.certificate = notary.certify(statement)
             session.record("certificate_issued")
-            return render_certificate(notary.certify(statement))
+            return render_certificate(session.certificate)
 
     @public.get("/privacy", response_class=HTMLResponse)
     def privacy() -> str:

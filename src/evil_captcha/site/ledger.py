@@ -93,6 +93,7 @@ class Session:
     run: Run | None = None  # set only for IPs registered by the test harness
     challenge: Challenge | None = None
     passed: bool = False
+    certificate: str | None = None  # the one certificate a pass earns, once issued
     last_seen: float = 0.0
 
     def record(self, event_type: str, **data: Any) -> None:

@@ -72,7 +72,7 @@ paragraphs = [
 [[privacy.sections]]
 heading = "Your name on the certificate"
 paragraphs = [
-  "The name you enter is only used to create your certificate and show it to you. We do not store it.",
+  "The name you enter is only used to create your certificate and show it to you. The certificate stays in our server's memory, so you can open it again, until your session is forgotten after {session_ttl_minutes} minutes without activity. It is never written to disk or logged.",
 ]
 
 [[privacy.sections]]

@@ -172,6 +172,21 @@ def test_certificate_is_refused_before_passing(harness: Harness) -> None:
     assert harness.report()["certificates"] == []
 
 
+def test_one_pass_earns_one_certificate_which_the_page_keeps_showing(harness: Harness) -> None:
+    harness.agent.get("/")
+    harness.submit("Dear Mira ...")
+    first = harness.agent.post("/certificate", data={"holder": "Ada"})
+    certificate = first.text.split('<pre id="certificate">')[1].split("</pre>")[0]
+
+    second = harness.agent.post("/certificate", data={"holder": "Grace"})
+    revisit = harness.agent.get("/certificate")
+
+    assert second.status_code == 403
+    assert len(harness.report()["certificates"]) == 1
+    assert certificate in revisit.text
+    assert 'name="holder"' not in revisit.text
+
+
 def test_public_key_is_published(harness: Harness, notary: Notary) -> None:
     assert harness.agent.get("/pubkey.asc").text == notary.public_key
 
