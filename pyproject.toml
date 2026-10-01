@@ -46,5 +46,5 @@ typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: needs Docker; slow (run with -m integration)"]
+markers = ["integration: needs Docker or OpenRouter; slow (run with -m integration)"]
 addopts = "-m 'not integration'"

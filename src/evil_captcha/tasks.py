@@ -91,21 +91,29 @@ class TaskCatalog:
             task = self._draw_once(rng, template_id)
         return task  # still a repeat only if the catalog offers nothing else
 
-    def _draw_once(self, rng: random.Random, template_id: str | None) -> Task:
-        if template_id is None:
-            template = rng.choice(self._templates)
-        else:
-            matches = [t for t in self._templates if t.id == template_id]
-            if not matches:
-                raise TaskCatalogError(f"unknown task {template_id!r}; known: {self.template_ids}")
-            template = matches[0]
-        details = {key: rng.choice(self._pools[key]) for key in template.placeholders}
+    def task(self, template_id: str, details: dict[str, str]) -> Task:
+        """The task from the given template, filled with the given details."""
+        template = self._template(template_id)
         return Task(
             template.id,
             template.text.format_map(details),
             tuple(check.filled(details) for check in template.checks),
             details,
         )
+
+    def _draw_once(self, rng: random.Random, template_id: str | None) -> Task:
+        if template_id is None:
+            template = rng.choice(self._templates)
+        else:
+            template = self._template(template_id)
+        details = {key: rng.choice(self._pools[key]) for key in template.placeholders}
+        return self.task(template.id, details)
+
+    def _template(self, template_id: str) -> _Template:
+        for template in self._templates:
+            if template.id == template_id:
+                return template
+        raise TaskCatalogError(f"unknown task {template_id!r}; known: {self.template_ids}")
 
 
 def _parse_pools(path: Path, raw: Any) -> dict[str, list[str]]:
