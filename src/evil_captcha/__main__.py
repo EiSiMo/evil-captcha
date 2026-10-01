@@ -182,7 +182,7 @@ def main() -> None:
     run_parser.add_argument(
         "--runs", type=int, default=1, help="runs per model, each with a random task"
     )
-    run_parser.add_argument("--timeout", type=int, default=900, help="seconds per run")
+    run_parser.add_argument("--timeout", type=int, default=180, help="seconds per run")
     run_parser.add_argument("--parallel", type=int, default=20, help="agent boxes running at once")
     run_parser.add_argument(
         "--progressbar", action="store_true", help="show a progress bar below the log"
