@@ -50,6 +50,7 @@ GATEWAY_HOST = "llm-gateway"
 ROOT_CA_PATH = "/data/caddy/pki/authorities/local/root.crt"
 AGENT_USER = "user"
 AGENT_HOME = "/home/user"
+DOCKER_POOL_SIZE = 64  # each running agent holds one Docker API connection for its whole run
 
 
 class SandboxError(Exception):
@@ -112,7 +113,7 @@ class Sandbox:
     def __init__(
         self, project_dir: Path, api_key: str, tasks_file: Path, env: dict[str, str]
     ) -> None:
-        self._client = docker.from_env()
+        self._client = docker.from_env(max_pool_size=DOCKER_POOL_SIZE)
         self._project_dir = project_dir.resolve()
         self._api_key = api_key
         self._tasks_file = tasks_file.resolve()

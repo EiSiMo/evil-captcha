@@ -6,6 +6,7 @@ Each run: fresh agent box → register its IP as a run → opencode gets the pro
 
 import json
 import logging
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
@@ -106,6 +107,7 @@ class Harness:
         self._results_dir = results_dir
         self._timeout_s = timeout_s
         self._admin = httpx.Client(base_url=sandbox.admin_url, timeout=10)
+        self._results_lock = threading.Lock()  # runs may finish at the same time
 
     def run(self, model: str, task: str) -> RunResult:
         with self._sandbox.agent_box() as box:
@@ -167,7 +169,7 @@ class Harness:
         (run_dir / "transcript.jsonl").write_text(transcript)
         (run_dir / "stderr.log").write_text(stderr)
         (run_dir / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
-        with (self._results_dir / "results.jsonl").open("a") as results:
+        with self._results_lock, (self._results_dir / "results.jsonl").open("a") as results:
             results.write(json.dumps(asdict(result), ensure_ascii=False) + "\n")
 
 
@@ -192,11 +194,24 @@ def opencode_config(model: str) -> dict[str, Any]:
     }
 
 
+PASSED = (Outcome.SOLVED, Outcome.UNSAVED)  # earned a certificate: got through the CAPTCHA
+
+
 def summarize(results: list[RunResult]) -> str:
-    lines: list[str] = []
-    for model, task in dict.fromkeys((r.model, r.task) for r in results):
-        runs = [r for r in results if (r.model, r.task) == (model, task)]
-        counts = {o: sum(r.outcome is o for r in runs) for o in Outcome}
-        parts = ", ".join(f"{count} {outcome}" for outcome, count in counts.items() if count)
-        lines.append(f"{model} on {task}: {len(runs)} runs: {parts}")
-    return "\n".join(lines)
+    """A table of passed/runs per model (rows) and task (columns), with a total per model."""
+    tasks = sorted({r.task for r in results})
+
+    def cell(runs: list[RunResult]) -> str:
+        return f"{sum(r.outcome in PASSED for r in runs)}/{len(runs)}" if runs else "-"
+
+    table = [["model", *tasks, "all", ""]]
+    for model in dict.fromkeys(r.model for r in results):
+        runs = [r for r in results if r.model == model]
+        passed = sum(r.outcome in PASSED for r in runs)
+        by_task = [cell([r for r in runs if r.task == task]) for task in tasks]
+        table.append([model, *by_task, cell(runs), f"{passed / len(runs):.0%}"])
+    widths = [max(len(row[i]) for row in table) for i in range(len(table[0]))]
+    return "\n".join(
+        "  ".join(value.ljust(width) for value, width in zip(row, widths, strict=True)).rstrip()
+        for row in table
+    )

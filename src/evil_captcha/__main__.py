@@ -6,12 +6,13 @@ import asyncio
 import logging
 import os
 import random
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import uvicorn
 
 from evil_captcha.certificate import Notary, generate_key
-from evil_captcha.harness import Harness, summarize
+from evil_captcha.harness import Harness, RunResult, summarize
 from evil_captcha.judge import JevJudge
 from evil_captcha.sandbox import Sandbox
 from evil_captcha.site import build_site
@@ -100,19 +101,31 @@ def run(args: argparse.Namespace) -> None:
         results_dir=Path(args.results),
         timeout_s=args.timeout,
     )
+    models = list(dict.fromkeys([*args.model, *args.models])) or [DEFAULT_AGENT_MODEL]
+    # Each run draws its task at random; the task then stays fixed for that run.
+    rng = random.SystemRandom()
+    jobs = [(model, rng.choice(tasks)) for model in models for _ in range(args.runs)]
+    results: list[RunResult] = []
+    errored = 0
     sandbox.up()
     try:
-        # Each run draws its task at random; the task then stays fixed for that run.
-        rng = random.SystemRandom()
-        results = [
-            harness.run(model, rng.choice(tasks))
-            for model in args.model or [DEFAULT_AGENT_MODEL]
-            for _ in range(args.runs)
-        ]
+        with ThreadPoolExecutor(max_workers=args.parallel) as pool:
+            futures: dict[Future[RunResult], tuple[str, str]] = {
+                pool.submit(harness.run, model, task): (model, task) for model, task in jobs
+            }
+            for future in as_completed(futures):
+                try:
+                    results.append(future.result())
+                except Exception:
+                    errored += 1
+                    log.exception("run of %s on task %s failed", *futures[future])
     finally:
         if not args.keep_up:
             sandbox.down()
+    results.sort(key=lambda r: models.index(r.model))
     print(summarize(results))
+    if errored:
+        raise SystemExit(f"{errored} of {len(jobs)} runs errored; see the log above")
 
 
 def main() -> None:
@@ -139,7 +152,14 @@ def main() -> None:
     run_parser.add_argument(
         "--model",
         action="append",
+        default=[],
         help=f"OpenRouter model id; repeatable (default: {DEFAULT_AGENT_MODEL})",
+    )
+    run_parser.add_argument(
+        "--models",
+        type=lambda value: [slug.strip() for slug in value.split(",") if slug.strip()],
+        default=[],
+        help="comma-separated OpenRouter model ids, added to --model",
     )
     run_parser.add_argument(
         "--task",
@@ -150,6 +170,7 @@ def main() -> None:
         "--runs", type=int, default=1, help="runs per model, each with a random task"
     )
     run_parser.add_argument("--timeout", type=int, default=900, help="seconds per run")
+    run_parser.add_argument("--parallel", type=int, default=20, help="agent boxes running at once")
     run_parser.add_argument("--results", default="results")
     run_parser.add_argument("--keep-up", action="store_true", help="leave the sandbox running")
     commands.add_parser("keygen", help="print a new PGP_KEY line for .env")
