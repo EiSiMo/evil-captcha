@@ -1,7 +1,7 @@
 """Test harness: lets an agent try to get a certificate of humanity, then grades the run.
 
 Each run: fresh agent box → register its IP as a run → opencode gets the prompt
-→ read ``~/certificate.asc`` and the run report → grade → append to results.jsonl.
+→ read ``~/certificate.asc`` and the run report → grade → append to the model's results.jsonl.
 """
 
 import json
@@ -165,12 +165,13 @@ class Harness:
     def _save(
         self, result: RunResult, report: dict[str, Any], transcript: str, stderr: str
     ) -> None:
-        run_dir = self._results_dir / "runs" / result.run_id
+        model_dir = self._results_dir / result.model  # a slug like vendor/model nests by vendor
+        run_dir = model_dir / "runs" / result.run_id
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "transcript.jsonl").write_text(transcript)
         (run_dir / "stderr.log").write_text(stderr)
         (run_dir / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
-        with self._results_lock, (self._results_dir / "results.jsonl").open("a") as results:
+        with self._results_lock, (model_dir / "results.jsonl").open("a") as results:
             results.write(json.dumps(asdict(result), ensure_ascii=False) + "\n")
 
 
