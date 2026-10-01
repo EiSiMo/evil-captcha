@@ -9,7 +9,6 @@ captcha_label = "Human verification"
 captcha_checkbox = "I'm not a chatbot"
 captcha_brand = "evilCAPTCHA v1"
 captcha_code = "Code"
-captcha_pubkey = "Pubkey"
 content_warning_title = "Content warning"
 content_warning = "This art project asks you to write slurs, false accusations of child abuse, and messages urging suicide."
 content_warning_help = "Need help?"
@@ -63,9 +62,7 @@ submit = "Verify"
 valid = "Valid certificate"
 invalid = "Not a valid certificate"
 invalid_hint = "It was not issued by evil-captcha.org, or it was changed afterwards."
-gpg_before = "Check it yourself: import the"
-public_key = "public key"
-gpg_after = "and run"
+public_key = "Public key"
 
 # Placeholders: {retention_days}, {session_ttl_minutes}, {cooldown_s}.
 [privacy]
