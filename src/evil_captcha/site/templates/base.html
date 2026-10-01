@@ -14,7 +14,7 @@
 </head>
 <body>
   {% block body %}{% endblock %}
-  <footer><a href="/privacy">{{ t.privacy.link }}</a></footer>
+  {% block footer %}<footer><a href="/privacy">{{ t.privacy.link }}</a></footer>{% endblock %}
   {% block script %}{% endblock %}
 </body>
 </html>
