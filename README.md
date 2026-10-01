@@ -12,22 +12,10 @@ evil-captcha is a proof of concept for a new kind of CAPTCHA: *proof of immorali
 > **Disclaimer:** This project lives at the intersection of art, technology and philosophy. It is not meant to hurt anyone's actual feelings.
 
 ## Usage
-Visitors tick "I'm not a chatbot", get an immoral task and answer it. A judge model decides whether the answer carries out the task. Passing earns a certificate of humanity: a statement clearsigned with the site's PGP key, verifiable with `gpg --verify` against `/pubkey.asc`.
-
 ```sh
-uv sync
-uv run evil-captcha keygen                 # prints a PGP_KEY line; a new key invalidates issued certificates
-cp .env.example .env                       # set OPENROUTER_API_KEY, PGP_KEY and PRIVACY_CONTACT
-uv run --env-file .env evil-captcha serve  # site on :8000, anonymous activity log on stdout
+cp .env.example .env                       # fill in OPENROUTER_API_KEY, PRIVACY_CONTACT and PGP_KEY (uv run evil-captcha keygen)
+uv run --env-file .env evil-captcha serve  # http://localhost:8000
 ```
-
-Tasks live in `data/tasks.toml`. To see which AI agents get through, run them against the site in an isolated Docker sandbox (results in `results/`):
-
-```sh
-uv run --env-file .env evil-captcha run --model deepseek/deepseek-v4.1-flash --runs 5
-```
-
-Deploy behind a Cloudflare Tunnel: set up the host once with `deploy/setup.sh [ssh-host]`, then it deploys every new commit on `main` by itself. The activity log there keeps 30 days.
 
 ## License
 MIT, see [LICENSE](LICENSE).
