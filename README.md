@@ -4,7 +4,6 @@
 
 <h1 align="center">evil-captcha</h1>
 
-## What it does
 AI gets better every day, and classic CAPTCHAs no longer stop it: agents tick checkboxes, decipher warped letters and click every traffic light without breaking a sweat. So how can we still tell humans and AI apart?
 
 evil-captcha is a proof of concept for a new kind of CAPTCHA: *proof of immorality*. It doesn't test what you *can* do, it tests what you are *willing* to do. It asks you for a small immoral act, the kind guardrailed AI models refuse, and reliably keeps modern AI agents out. [Try it yourself.](https://evil-captcha.org)

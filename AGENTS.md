@@ -26,7 +26,7 @@ An art-project CAPTCHA service, embeddable like Cloudflare Turnstile or Google r
 - Few dependencies, each justified. Commit lockfiles.
 - Secrets only in `.env` at project root (gitignored). Keep `.env.example` with keys, no values.
 - License: MIT.
-- README has only "What it does", "Usage", "License". Docs describe the goal, not the current state.
+- README has only an untitled intro (what it does) under the title, then "Usage" and "License". Docs describe the goal, not the current state.
 
 ## Stack & Commands
 - Python 3.14, managed with uv. Package in `src/evil_captcha/`, tests in `tests/`.
