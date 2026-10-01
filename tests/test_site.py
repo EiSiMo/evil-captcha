@@ -185,7 +185,7 @@ def test_captcha_popup_carries_the_content_warning_so_it_can_be_embedded(
     assert isinstance(warning, str)
     challenge = page[page.index('<div class="challenge">') : page.index("</details>")]
 
-    assert html.escape(warning) in challenge
+    assert html.escape(warning).replace("**anything**", "<strong>anything</strong>") in challenge
     assert "https://findahelpline.com" in challenge
     assert "<dialog" not in page
 

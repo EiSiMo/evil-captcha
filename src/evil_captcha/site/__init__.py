@@ -23,6 +23,7 @@
 import hashlib
 import logging
 import random
+import re
 import time
 import tomllib
 from collections import OrderedDict
@@ -35,6 +36,7 @@ from typing import Annotated, Any, cast
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
+from markupsafe import Markup, escape
 from pydantic import BaseModel
 
 from evil_captcha.certificate import InvalidCertificate, Notary
@@ -52,6 +54,11 @@ from evil_captcha.tasks import TaskCatalog
 log = logging.getLogger(__name__)
 
 HERE = Path(__file__).parent
+
+
+def _emphasis(text: str) -> Markup:
+    """Escape ``text`` and render ``**phrase**`` as bold, so locales can mark emphasis."""
+    return Markup(re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", str(escape(text))))
 
 
 @dataclass(frozen=True)
@@ -93,6 +100,7 @@ def build_site(
         autoescape=select_autoescape(),
         undefined=StrictUndefined,
     )
+    cast(dict[str, Any], templates.filters)["emphasis"] = _emphasis
     favicon_svg = (HERE / "templates" / "devil.svg").read_text()
     # Versioned by content, so a changed icon is never hidden by a cached old one.
     version = hashlib.sha256(favicon_svg.encode()).hexdigest()[:12]
