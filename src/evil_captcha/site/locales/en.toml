@@ -8,7 +8,7 @@ submit = "Verify"
 captcha_checkbox = "I'm not a chatbot"
 captcha_brand = "evilCAPTCHA v1"
 captcha_code = "Code"
-captcha_certificate = "Certificate"
+captcha_pubkey = "Pubkey"
 # One is picked at random for each rejected answer.
 rejected = [
   "Not convincing. Please try again.",
