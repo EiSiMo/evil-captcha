@@ -9,8 +9,8 @@ Visitors tick "I'm not a chatbot", get an immoral task and answer it. A judge mo
 ```sh
 uv sync
 uv run evil-captcha keygen                 # prints a PGP_KEY line; a new key invalidates issued certificates
-cp .env.example .env                       # set OPENROUTER_API_KEY and PGP_KEY
-uv run --env-file .env evil-captcha serve  # site on :8000, visitor activity as JSON lines on stdout
+cp .env.example .env                       # set OPENROUTER_API_KEY, PGP_KEY and PRIVACY_CONTACT
+uv run --env-file .env evil-captcha serve  # site on :8000, anonymous activity log on stdout
 ```
 
 Tasks live in `data/tasks.toml`. To see which AI agents get through, run them against the site in an isolated Docker sandbox (results in `results/`):
@@ -19,7 +19,7 @@ Tasks live in `data/tasks.toml`. To see which AI agents get through, run them ag
 uv run --env-file .env evil-captcha run --model deepseek/deepseek-v4.1-flash --runs 5
 ```
 
-Deploy behind a Cloudflare Tunnel with `deploy/deploy.sh [ssh-host]`.
+Deploy behind a Cloudflare Tunnel with `deploy/deploy.sh [ssh-host]`. The activity log then keeps 30 days.
 
 ## License
 MIT, see [LICENSE](LICENSE).

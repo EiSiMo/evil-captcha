@@ -31,7 +31,7 @@ def sandbox(tmp_path_factory: pytest.TempPathFactory, key: str) -> Iterator[Sand
         ROOT,
         api_key=os.environ.get("OPENROUTER_API_KEY", "unused"),
         tasks_file=tasks,
-        env={"PGP_KEY": key},
+        env={"PGP_KEY": key, "PRIVACY_CONTACT": "test"},
     )
     sandbox.up()
     yield sandbox

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block meta %}<meta name="robots" content="noindex">{% endblock %}
+{% block title %}{{ t.privacy.title }}{% endblock %}
+{% block body %}
+  <main>
+    <h1>{{ t.privacy.title }}</h1>
+    <p>{{ t.privacy.intro }}</p>
+    <h2>{{ t.privacy.contact_heading }}</h2>
+    <p>{{ contact }}</p>
+    {% for section in t.privacy.sections %}
+      <h2>{{ section.heading }}</h2>
+      {% for paragraph in section.paragraphs %}
+        <p>{{ paragraph.format(**facts) }}</p>
+      {% endfor %}
+    {% endfor %}
+  </main>
+{% endblock %}

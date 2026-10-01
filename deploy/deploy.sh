@@ -2,7 +2,7 @@
 # Deploy the site: sync code and tasks to the host, then rebuild and restart it.
 # Usage: deploy/deploy.sh [ssh-host]  (default: lab)
 # The host needs Docker, a running cloudflared tunnel to localhost:8000, and
-# ~/evil-captcha/.env with OPENROUTER_API_KEY and PGP_KEY.
+# ~/evil-captcha/.env with OPENROUTER_API_KEY, PGP_KEY and PRIVACY_CONTACT.
 set -euo pipefail
 
 host="${1:-lab}"

@@ -1,11 +1,7 @@
-<!doctype html>
-<html lang="{{ lang }}">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ t.title }}</title>
+{% extends "base.html" %}
+{% block title %}{{ t.title }}{% endblock %}
+{% block style %}
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }
     .holder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 400px; }
     .holder label { flex-basis: 100%; }
     .holder input { flex: 1; min-width: 12rem; height: 42px; box-sizing: border-box; padding: 0 10px; font: inherit; border: 1px solid #ccc; border-radius: 2px; }
@@ -14,7 +10,7 @@
     .copy:hover { background: #eee; }
     .js .copy { display: block; }
     #certificate { margin: 0; font: 13px/1.4 ui-monospace, monospace; background: #f6f6f6; border: 1px solid #ddd; padding: 12px; overflow-x: auto; white-space: pre; }
-    .fineprint { font-size: .8rem; color: #555; }
+    .fineprint { font-size: .8rem; }
 
     /* The widget mimics the classic checkbox captcha, but works without JavaScript:
        the challenge is a plain <details> disclosure around a plain HTML form. */
@@ -119,8 +115,8 @@
       .js .captcha *, .js .captcha *::before, .js .captcha *::after { animation: none !important; transition: none !important; }
     }
   </style>
-</head>
-<body>
+{% endblock %}
+{% block body %}
   <script>document.documentElement.classList.add("js");</script>
   <h1>{{ t.title }}</h1>
   <p>{{ t.goal }}</p>
@@ -189,6 +185,8 @@
     </details>
   {% endif %}
   </main>
+{% endblock %}
+{% block script %}
   <script>
     // Progressive enhancement: everything above works as plain HTML forms, which is how
     // agents without a browser use it. This script only adds the animated flow.
@@ -292,5 +290,4 @@
       });
     })();
   </script>
-</body>
-</html>
+{% endblock %}

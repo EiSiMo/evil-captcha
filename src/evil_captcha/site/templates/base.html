@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% block meta %}{% endblock %}
+  <title>{% block title %}{% endblock %}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }
+    footer { margin-top: 4rem; font-size: .8rem; }
+    footer a, .fineprint { color: #555; }
+  </style>
+  {% block style %}{% endblock %}
+</head>
+<body>
+  {% block body %}{% endblock %}
+  <footer><a href="/privacy">{{ t.privacy.link }}</a></footer>
+  {% block script %}{% endblock %}
+</body>
+</html>

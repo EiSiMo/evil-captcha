@@ -45,3 +45,44 @@ copy = "Copy"
 copied = "Copied"
 copy_failed = "Copy failed"
 public_key_link = "Verify it with gpg and our public key"
+
+# Placeholders: {retention_days}, {session_ttl_minutes}, {cooldown_s}.
+[privacy]
+link = "Privacy"
+title = "Privacy"
+intro = "evil-captcha is an art project. It collects as little as it can and never stores who you are."
+contact_heading = "Who is responsible"
+
+[[privacy.sections]]
+heading = "Your answers"
+paragraphs = [
+  "To check an answer, we send it to OpenRouter, Inc. (USA), which passes it to an AI model that judges it. Neither of them sees your IP address or your name.",
+  "Each answer is logged together with its task, its score, the time and a random session ID. The log holds no IP addresses and no names, so we cannot tell who wrote an answer. It is deleted after {retention_days} days.",
+  "Please do not write anything about yourself into your answer.",
+]
+
+[[privacy.sections]]
+heading = "Your name on the certificate"
+paragraphs = [
+  "The name you enter is only used to create your certificate and show it to you. We do not store it.",
+]
+
+[[privacy.sections]]
+heading = "Your IP address"
+paragraphs = [
+  "Our server needs your IP address to answer your browser and to allow only one answer every {cooldown_s} seconds. It is kept in memory only for that and never written to disk.",
+  "The site is delivered through Cloudflare, Inc. (USA), which also processes your IP address and request data to deliver the site and protect it from attacks.",
+]
+
+[[privacy.sections]]
+heading = "Cookie"
+paragraphs = [
+  "A single cookie holds a random session ID, so the site knows which task is yours and whether you passed. It is strictly necessary, deleted when you close your browser and forgotten by our server after {session_ttl_minutes} minutes without activity. There is no tracking and no analytics.",
+]
+
+[[privacy.sections]]
+heading = "Legal basis and your rights"
+paragraphs = [
+  "We process this data based on our legitimate interest in running the site and protecting it from abuse (Art. 6(1)(f) GDPR).",
+  "You have the right to access, rectification, erasure, restriction of processing and objection, and you may complain to a data protection supervisory authority. As the log cannot be linked to you, we can usually not find your entries in it.",
+]

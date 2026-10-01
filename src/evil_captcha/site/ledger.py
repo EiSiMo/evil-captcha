@@ -10,18 +10,22 @@ keep their events in memory, so public traffic cannot grow it.
 
 Every event of every session is also written to the ``evil_captcha.activity``
 logger as one JSON object with the session id. Visitors stay anonymous: the log
-holds neither client IPs nor the names on certificates.
+holds neither client IPs nor the names on certificates. Written to a file, it
+rotates daily and keeps ``ACTIVITY_RETENTION_DAYS`` days.
 """
 
 import json
 import logging
+import logging.handlers
 import secrets
+import sys
 import threading
 import uuid
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from evil_captcha.tasks import Task
@@ -30,6 +34,25 @@ activity = logging.getLogger("evil_captcha.activity")
 
 SESSION_TTL_S = 3600.0
 MAX_SESSIONS = 100_000
+ACTIVITY_RETENTION_DAYS = 30
+
+
+def log_activity(path: Path | None) -> None:
+    """Send the activity log to the file (or stdout) as bare JSON lines, not to the root logger.
+
+    A file rotates at midnight UTC, and files older than the retention are deleted.
+    """
+    handler: logging.Handler
+    if path:
+        handler = logging.handlers.TimedRotatingFileHandler(
+            path, when="midnight", utc=True, backupCount=ACTIVITY_RETENTION_DAYS - 1
+        )
+    else:
+        handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    activity.addHandler(handler)
+    activity.setLevel(logging.INFO)
+    activity.propagate = False
 
 
 @dataclass(frozen=True)

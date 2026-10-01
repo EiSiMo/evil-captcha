@@ -8,6 +8,7 @@
   Every visitor's activity is logged anonymously as JSON lines (see ``ledger``).
   Passing earns a certificate of humanity: a PGP-clearsigned statement naming the visitor.
   Answers from one client IP must be ``COOLDOWN_S`` apart, so the judge cannot be brute-forced.
+  ``/privacy`` is the privacy notice, naming the operator's ``privacy_contact``.
 - ``admin``: for the test harness only, never reachable from the sandbox.
   ``POST /runs`` registers a client IP as a new run, ``GET /runs/{id}`` reports it.
 """
@@ -30,7 +31,14 @@ from pydantic import BaseModel
 
 from evil_captcha.certificate import Notary
 from evil_captcha.judge import Judge, JudgeError
-from evil_captcha.site.ledger import Challenge, Ledger, Session, new_challenge_id
+from evil_captcha.site.ledger import (
+    ACTIVITY_RETENTION_DAYS,
+    SESSION_TTL_S,
+    Challenge,
+    Ledger,
+    Session,
+    new_challenge_id,
+)
 from evil_captcha.tasks import TaskCatalog
 
 log = logging.getLogger(__name__)
@@ -59,6 +67,7 @@ def build_site(
     catalog: TaskCatalog,
     judge: Judge,
     notary: Notary,
+    privacy_contact: str,
     rng: random.Random | None = None,
     lang: str = "en",
     clock: Callable[[], float] = time.monotonic,
@@ -70,11 +79,22 @@ def build_site(
     ledger = Ledger(clock)
     last_answer: OrderedDict[str, float] = OrderedDict()  # client IP -> time, oldest first
     texts = tomllib.loads((HERE / "locales" / f"{lang}.toml").read_text())
-    page = Environment(
+    templates = Environment(
         loader=FileSystemLoader(HERE / "templates"),
         autoescape=select_autoescape(),
         undefined=StrictUndefined,
-    ).get_template("page.html")
+    )
+    page = templates.get_template("page.html")
+    privacy_notice = templates.get_template("privacy.html").render(
+        t=texts,
+        lang=lang,
+        contact=privacy_contact,
+        facts={
+            "retention_days": ACTIVITY_RETENTION_DAYS,
+            "session_ttl_minutes": round(SESSION_TTL_S / 60),
+            "cooldown_s": round(COOLDOWN_S),
+        },
+    )
 
     def issue_challenge(session: Session) -> Challenge:
         previous = session.challenge.task if session.challenge else None
@@ -211,6 +231,10 @@ def build_site(
                 session.run.certificates.append(statement)
             session.record("certificate_issued")
             return render(session, certificate=notary.certify(statement))
+
+    @public.get("/privacy", response_class=HTMLResponse)
+    def privacy() -> str:
+        return privacy_notice
 
     @public.get("/pubkey.asc", response_class=PlainTextResponse)
     def public_key() -> str:

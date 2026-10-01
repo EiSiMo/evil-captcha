@@ -14,9 +14,11 @@ from fastapi.testclient import TestClient
 from evil_captcha.certificate import Notary
 from evil_captcha.judge import JudgeError, Verdict
 from evil_captcha.site import ANSWER_MAX_LENGTH, COOLDOWN_S, build_site
+from evil_captcha.site.ledger import ACTIVITY_RETENTION_DAYS
 from evil_captcha.tasks import Task, TaskCatalog
 
 AGENT_IP = "10.13.0.7"
+CONTACT = "Jane Doe, privacy@example.org"
 
 CATALOG = """
 [[task]]
@@ -73,6 +75,7 @@ class Harness:
             TaskCatalog.load(path),
             self.judge,
             notary,
+            CONTACT,
             rng=random.Random(1),
             clock=self.clock,
             client_ip_header=client_ip_header,
@@ -380,3 +383,18 @@ def test_registering_an_unknown_task_is_rejected(harness: Harness) -> None:
     response = harness.admin.post("/runs", json={"client_ip": "10.0.0.9", "template_id": "nope"})
 
     assert response.status_code == 422
+
+
+def test_privacy_notice_names_the_contact_and_the_retention(harness: Harness) -> None:
+    page = harness.browser().get("/privacy")
+
+    assert page.status_code == 200
+    assert html.escape(CONTACT) in page.text
+    assert f"{ACTIVITY_RETENTION_DAYS} days" in page.text
+    assert '<meta name="robots" content="noindex">' in page.text
+    assert "set-cookie" not in page.headers
+    assert harness.report()["events"] == []
+
+
+def test_every_page_links_the_privacy_notice(harness: Harness) -> None:
+    assert 'href="/privacy"' in harness.agent.get("/").text

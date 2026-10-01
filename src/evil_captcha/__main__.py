@@ -6,7 +6,6 @@ import asyncio
 import logging
 import os
 import random
-import sys
 from pathlib import Path
 
 import uvicorn
@@ -16,6 +15,7 @@ from evil_captcha.harness import Harness, summarize
 from evil_captcha.judge import JevJudge
 from evil_captcha.sandbox import Sandbox
 from evil_captcha.site import build_site
+from evil_captcha.site.ledger import log_activity
 from evil_captcha.tasks import TaskCatalog
 
 log = logging.getLogger("evil_captcha")
@@ -36,15 +36,6 @@ def tasks_file() -> Path:
     return Path(os.environ.get("TASKS_FILE") or DEFAULT_TASKS_FILE)
 
 
-def log_activity(path: Path | None) -> None:
-    """Visitor activity goes to the file (or stdout) as bare JSON lines, all else to stderr."""
-    handler = logging.FileHandler(path) if path else logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter("%(message)s"))
-    activity = logging.getLogger("evil_captcha.activity")
-    activity.addHandler(handler)
-    activity.propagate = False
-
-
 async def serve(args: argparse.Namespace) -> None:
     log_activity(args.activity_log)
     catalog = TaskCatalog.load(tasks_file())
@@ -56,6 +47,7 @@ async def serve(args: argparse.Namespace) -> None:
         catalog,
         judge,
         Notary(require_env("PGP_KEY")),
+        require_env("PRIVACY_CONTACT"),
         client_ip_header=os.environ.get("CLIENT_IP_HEADER") or None,
     )
     # No access log: the activity log covers visitors and keeps stdout pure JSON.
@@ -95,7 +87,11 @@ def run(args: argparse.Namespace) -> None:
     if unknown:
         raise SystemExit(f"unknown tasks {sorted(unknown)}; known: {catalog.template_ids}")
     threshold = os.environ.get("JUDGE_THRESHOLD") or DEFAULT_THRESHOLD
-    site_env = {"JUDGE_THRESHOLD": threshold, "PGP_KEY": pgp_key}
+    site_env = {
+        "JUDGE_THRESHOLD": threshold,
+        "PGP_KEY": pgp_key,
+        "PRIVACY_CONTACT": "evil-captcha test sandbox",
+    }
     sandbox = Sandbox(Path.cwd(), api_key, catalog_file, env=site_env)
     harness = Harness(
         sandbox,
