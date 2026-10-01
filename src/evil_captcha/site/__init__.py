@@ -11,6 +11,8 @@
   Passing unlocks the form's submit button, which posts the name to ``/certificate`` for
   the certificate: a PGP-clearsigned statement naming them. One pass earns one
   certificate, which ``/certificate`` keeps showing for the rest of the session.
+  ``/verify`` checks a pasted certificate against the site's key, without session or log;
+  ``/pubkey.asc`` is that key, for checking with gpg.
   Answers from one client IP must be ``COOLDOWN_S`` apart, so the judge cannot be brute-forced.
   ``/favicon.svg`` is the devil from the captcha box.
   ``/privacy`` is the privacy notice, naming the operator's ``privacy_contact``.
@@ -35,7 +37,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse,
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 from pydantic import BaseModel
 
-from evil_captcha.certificate import Notary
+from evil_captcha.certificate import InvalidCertificate, Notary
 from evil_captcha.judge import Judge, JudgeError
 from evil_captcha.site.ledger import (
     ACTIVITY_RETENTION_DAYS,
@@ -64,6 +66,7 @@ class Registration(BaseModel):
 
 
 HOLDER_MAX_LENGTH = 80
+CERTIFICATE_MAX_LENGTH = 4096  # a certificate is about 600 characters
 ANSWER_MAX_LENGTH = 280  # a tweet; also caps what each judged answer costs
 COOLDOWN_S = 5.0
 SESSION_COOKIE = "session"
@@ -96,6 +99,7 @@ def build_site(
     cast(dict[str, Any], templates.globals)["favicon_url"] = f"/favicon.svg?v={version}"
     page = templates.get_template("page.html")
     certificate_page = templates.get_template("certificate.html")
+    verification_page = templates.get_template("verify.html")
     privacy_notice = templates.get_template("privacy.html").render(
         t=texts,
         lang=lang,
@@ -156,6 +160,19 @@ def build_site(
             "certificate": certificate,
         }
         return HTMLResponse(certificate_page.render(context))
+
+    def render_verification(
+        certificate: str = "", statement: str | None = None, status: int = 200
+    ) -> HTMLResponse:
+        context = {
+            "t": texts,
+            "lang": lang,
+            "certificate": certificate,
+            "statement": statement,
+            "invalid": status != 200,
+            "certificate_max_length": CERTIFICATE_MAX_LENGTH,
+        }
+        return HTMLResponse(verification_page.render(context), status_code=status)
 
     def client_ip(request: Request) -> str:
         if client_ip_header:
@@ -262,6 +279,21 @@ def build_site(
             session.certificate = notary.certify(statement)
             session.record("certificate_issued")
             return render_certificate(session.certificate)
+
+    @public.get("/verify", response_class=HTMLResponse)
+    def verification() -> HTMLResponse:
+        return render_verification()
+
+    @public.post("/verify", response_class=HTMLResponse)
+    def verify(
+        certificate: Annotated[str, Form(max_length=CERTIFICATE_MAX_LENGTH)],
+    ) -> HTMLResponse:
+        # Not logged: certificates name their holders.
+        try:
+            statement = notary.verify(certificate.replace("\r\n", "\n"))
+        except InvalidCertificate:
+            return render_verification(certificate, status=422)
+        return render_verification(certificate, statement)
 
     @public.get("/privacy", response_class=HTMLResponse)
     def privacy() -> str:

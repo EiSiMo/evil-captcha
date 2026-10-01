@@ -4,29 +4,9 @@
   <style>
     /* The page is an application form: one name field, the captcha, and a submit button
        that unlocks once the captcha is solved. */
-    .application {
-      box-sizing: border-box; max-width: 32rem; margin: 0 auto; padding: 32px;
-      background: #fff; border: 1px solid #e3e3e3; border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, .06), 0 8px 24px rgba(0, 0, 0, .06);
-    }
-    .application h1 { margin: 0 0 4px; font-size: 1.5rem; line-height: 1.3; }
-    .application > p { margin: 0 0 24px; color: #555; }
-    .field { margin-bottom: 24px; }
-    .field-label { display: block; margin-bottom: 6px; font-weight: 600; font-size: .9rem; }
-    .field-label .required { color: #d93025; }
-    #holder {
-      display: block; box-sizing: border-box; width: 100%; height: 44px; padding: 0 12px;
-      font: inherit; border: 1px solid #c7c7c7; border-radius: 8px; background: #fff;
-    }
-    #holder:focus { outline: 0; border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26, 115, 232, .2); }
-    .apply {
-      display: block; width: 100%; height: 48px; border: 0; border-radius: 8px; cursor: pointer;
-      background: #1a73e8; color: #fff; font: 600 1rem system-ui, sans-serif;
-    }
-    .apply:hover { background: #1765cc; }
-    .apply:disabled { background: #e3e3e3; color: #8a8a8a; cursor: not-allowed; }
+    .button:disabled { background: #e3e3e3; color: #8a8a8a; cursor: not-allowed; }
     .apply-hint { margin: 8px 0 0; font-size: .8rem; color: #777; text-align: center; }
-    .js .apply:not(:disabled) { animation: enter .3s ease-out; }
+    .js .button:not(:disabled) { animation: enter .3s ease-out; }
 
     /* The widget mimics the classic checkbox captcha, but works without JavaScript:
        the challenge is a plain <details> disclosure inside the plain HTML form. */
@@ -140,7 +120,7 @@
     #content-warning form a { color: #555; }
     .warning-seen #content-warning { display: none; }
     @media (prefers-reduced-motion: reduce) {
-      .js .captcha *, .js .captcha *::before, .js .captcha *::after, .js .apply { animation: none !important; transition: none !important; }
+      .js .captcha *, .js .captcha *::before, .js .captcha *::after, .js .button { animation: none !important; transition: none !important; }
     }
   </style>
 {% endblock %}
@@ -162,7 +142,7 @@
       <button class="verify" autofocus>{{ t.content_warning_continue }}</button>
     </form>
   </dialog>
-  <main class="application">
+  <main class="card">
     <h1>{{ t.title }}</h1>
     <p>{{ t.goal }}</p>
     {# One form for everything, so a failed attempt keeps the name: the captcha's verify
@@ -170,7 +150,7 @@
     <form id="application" method="post" action="/">
       <div class="field">
         <label class="field-label" for="holder">{{ t.holder_label }} <span class="required" aria-hidden="true">*</span></label>
-        <input id="holder" name="holder" value="{{ holder }}" autocomplete="name" maxlength="{{ holder_max_length }}" required>
+        <input id="holder" name="holder" class="input" value="{{ holder }}" autocomplete="name" maxlength="{{ holder_max_length }}" required>
       </div>
       <div class="field">
         <span class="field-label">{{ t.captcha_label }} <span class="required" aria-hidden="true">*</span></span>
@@ -222,7 +202,7 @@
         </div>
       </div>
       <div id="apply-area">
-        <button id="apply" class="apply" type="submit" formaction="/certificate"{% if not passed %} disabled{% endif %}>{{ t.get_certificate }}</button>
+        <button id="apply" class="button" type="submit" formaction="/certificate"{% if not passed %} disabled{% endif %}>{{ t.get_certificate }}</button>
         {% if not passed %}<p class="apply-hint">{{ t.apply_hint }}</p>{% endif %}
       </div>
     </form>

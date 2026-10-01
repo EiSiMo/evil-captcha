@@ -49,11 +49,23 @@ apply_hint = "Solve the captcha to unlock the form."
 congrats_title = "Congratulations"
 congrats = "You have proven that you are human."
 statement = "{holder} has proven to be human on evil-captcha.org at {time}"
-certificate_intro = "Your certificate of humanity:"
+certificate_intro = "Your certificate of humanity"
 copy_button = "Copy"
 copied = "Copied"
 copy_failed = "Copy failed"
-public_key_link = "Verify"
+verify_link = "Verify a certificate"
+
+[verify]
+title = "Verify a certificate"
+intro = "Check whether a certificate of humanity was really issued by evil-captcha.org."
+label = "Certificate"
+submit = "Verify"
+valid = "Valid certificate"
+invalid = "Not a valid certificate"
+invalid_hint = "It was not issued by evil-captcha.org, or it was changed afterwards."
+gpg_before = "Check it yourself: import the"
+public_key = "public key"
+gpg_after = "and run"
 
 # Placeholders: {retention_days}, {session_ttl_minutes}, {cooldown_s}.
 [privacy]
@@ -74,6 +86,12 @@ paragraphs = [
 heading = "Your name on the certificate"
 paragraphs = [
   "The name you enter is only used to create your certificate and show it to you. It is sent along with every answer so the form keeps it, but it is not stored until the certificate is created. The certificate stays in our server's memory, so you can open it again, until your session is forgotten after {session_ttl_minutes} minutes without activity. It is never written to disk or logged.",
+]
+
+[[privacy.sections]]
+heading = "Verifying a certificate"
+paragraphs = [
+  "A certificate you paste to verify it is only checked and shown back to you. It is never stored or logged.",
 ]
 
 [[privacy.sections]]
