@@ -5,6 +5,7 @@
     .holder { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 400px; }
     .holder label { flex-basis: 100%; }
     .holder input { flex: 1; min-width: 12rem; height: 42px; box-sizing: border-box; padding: 0 10px; font: inherit; border: 1px solid #ccc; border-radius: 2px; }
+    .holder .privacy { flex-basis: 100%; font-size: .75rem; color: #999; }
     .certify {
       padding: 0 24px; height: 42px; border: 0; border-radius: 2px; cursor: pointer;
       background: #1a73e8; color: #fff; font: 500 14px Roboto, helvetica, arial, sans-serif; text-transform: uppercase;
@@ -35,10 +36,13 @@
         <label for="holder">{{ t.holder_label }}</label>
         <input id="holder" name="holder" autocomplete="name" maxlength="{{ holder_max_length }}" required autofocus>
         <button class="certify" type="submit">{{ t.certify }}</button>
+        <a class="privacy" href="/privacy">{{ t.privacy.link }}</a>
       </form>
     {% endif %}
   </main>
 {% endblock %}
+{# While the name is asked for, the privacy link sits right under its field instead. #}
+{% block footer %}{% if certificate %}{{ super() }}{% endif %}{% endblock %}
 {% block script %}
   <script>
     (() => {
