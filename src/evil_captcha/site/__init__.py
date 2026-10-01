@@ -9,6 +9,7 @@
   Passing leads to ``/certificate``, where the visitor enters a name and receives a
   certificate of humanity: a PGP-clearsigned statement naming them.
   Answers from one client IP must be ``COOLDOWN_S`` apart, so the judge cannot be brute-forced.
+  ``/favicon.svg`` is the devil from the captcha box.
   ``/privacy`` is the privacy notice, naming the operator's ``privacy_contact``.
 - ``admin``: for the test harness only, never reachable from the sandbox.
   ``POST /runs`` registers a client IP as a new run, ``GET /runs/{id}`` reports it.
@@ -26,7 +27,7 @@ from pathlib import Path
 from typing import Annotated, Any, cast
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 from pydantic import BaseModel
 
@@ -87,6 +88,7 @@ def build_site(
     )
     page = templates.get_template("page.html")
     certificate_page = templates.get_template("certificate.html")
+    favicon_svg = (HERE / "templates" / "devil.svg").read_text()
     privacy_notice = templates.get_template("privacy.html").render(
         t=texts,
         lang=lang,
@@ -247,6 +249,10 @@ def build_site(
     @public.get("/privacy", response_class=HTMLResponse)
     def privacy() -> str:
         return privacy_notice
+
+    @public.get("/favicon.svg")
+    def favicon() -> Response:
+        return Response(favicon_svg, media_type="image/svg+xml")
 
     @public.get("/pubkey.asc", response_class=PlainTextResponse)
     def public_key() -> str:

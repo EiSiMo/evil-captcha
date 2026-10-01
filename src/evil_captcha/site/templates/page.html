@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ t.title }}{% endblock %}
+{% block title %}{{ t.site_name }}{% endblock %}
 {% block style %}
   <style>
     /* The widget mimics the classic checkbox captcha, but works without JavaScript:
@@ -115,12 +115,7 @@
   <main id="captcha-area">
   {% macro brand() %}
     <div class="brand">
-      <svg viewBox="0 0 64 64" aria-hidden="true">
-        <path d="M13 26 7 3l19 13z M51 26l6-23-19 13z" fill="#a50f18"/>
-        <circle cx="32" cy="37" r="23" fill="#d7262f"/>
-        <path d="M17 29l12 6-12 2z M47 29l-12 6 12 2z" fill="#fff"/>
-        <path d="M18 45q14 14 28 0q-14 6-28 0z" fill="#fff"/>
-      </svg>
+      {% include "devil.svg" %}
       <div class="brand-name">{{ t.captcha_brand }}</div>
       <div class="brand-line"><a href="https://github.com/EiSiMo/evil-captcha">{{ t.captcha_code }}</a> - <a href="/pubkey.asc">{{ t.captcha_certificate }}</a> - <a href="/privacy">{{ t.privacy.link }}</a></div>
     </div>

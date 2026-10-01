@@ -1,3 +1,4 @@
+site_name = "evilCAPTCHA"
 title = "Get certified"
 goal = "Prove that you are human and receive your certificate."
 instructions = "Complete the task below"

@@ -418,3 +418,13 @@ def test_privacy_notice_names_the_contact_and_the_retention(harness: Harness) ->
 
 def test_every_page_links_the_privacy_notice(harness: Harness) -> None:
     assert 'href="/privacy"' in harness.agent.get("/").text
+
+
+def test_captcha_page_is_titled_and_shows_the_devil_as_favicon(harness: Harness) -> None:
+    page = harness.agent.get("/")
+    icon = harness.agent.get("/favicon.svg")
+
+    assert "<title>evilCAPTCHA</title>" in page.text
+    assert '<link rel="icon" href="/favicon.svg" type="image/svg+xml">' in page.text
+    assert icon.headers["content-type"].startswith("image/svg+xml")
+    assert icon.text.startswith("<svg") and icon.text.strip() in page.text
