@@ -389,8 +389,27 @@ def test_siteverify_confirms_a_pass_token_once(harness: Harness) -> None:
     first = server.post("/siteverify", data={"response": token})
     second = server.post("/siteverify", data={"response": token})
 
-    assert first.json() == {"success": True}
+    assert first.json()["success"] is True
     assert second.json() == {"success": False}
+
+
+def test_siteverify_names_the_site_the_captcha_was_solved_on(harness: Harness) -> None:
+    """So a server can refuse tokens that visitors were lured into solving on another site."""
+    page = harness.agent.get("/widget", headers={"Referer": "https://shop.example/cart?id=7"})
+    harness.widget_session = hidden(page, "session")
+    token = pass_token(harness.submit("Dear Mira ..."))
+
+    result = harness.browser("192.0.2.80").post("/siteverify", data={"response": token})
+
+    assert result.json() == {"success": True, "site": "https://shop.example"}
+
+
+def test_siteverify_names_no_site_when_the_browser_sent_no_referer(harness: Harness) -> None:
+    token = harness.solve()
+
+    result = harness.browser("192.0.2.80").post("/siteverify", data={"response": token})
+
+    assert result.json() == {"success": True, "site": None}
 
 
 def test_siteverify_rejects_expired_and_made_up_tokens(harness: Harness) -> None:
@@ -408,9 +427,9 @@ def test_siteverify_is_not_throttled(harness: Harness) -> None:
     tokens = [harness.solve() for _ in range(3)]
     server = harness.browser(AGENT_IP)
 
-    results = [server.post("/siteverify", data={"response": t}).json() for t in tokens]
+    results = [server.post("/siteverify", data={"response": t}).json()["success"] for t in tokens]
 
-    assert results == [{"success": True}] * 3
+    assert results == [True] * 3
 
 
 # The application form: our own site, which embeds the widget through the snippet.
@@ -719,6 +738,7 @@ def test_docs_show_the_snippet_our_own_form_uses_and_how_to_check_it(harness: Ha
     assert docs.status_code == 200
     assert public in html.unescape(docs.text)
     assert "https://evil-captcha.org/siteverify" in docs.text
+    assert '"site"' in docs.text  # the answer names the site, which servers should compare
     assert "host it yourself" in docs.text
     assert "set-cookie" not in docs.headers
 

@@ -24,7 +24,7 @@
     <h2>{{ t.docs.check_heading }}</h2>
     <p>{{ t.docs.check | emphasis }}</p>
     <pre><code>curl -d "response=$TOKEN" {{ public_url }}/siteverify
-{"success": true}</code></pre>
+{"success": true, "site": "https://your-site.example"}</code></pre>
     <h2>{{ t.docs.notes_heading }}</h2>
     <ul>
       {% for note in t.docs.notes %}<li>{{ note.format(**facts) | emphasis }}</li>{% endfor %}

@@ -14,7 +14,9 @@ fills in the field itself.
   brute-forced. Answers always go straight from the visitor to this site, so the
   cooldown holds across all sites that embed the widget.
 - ``/siteverify`` redeems a pass token for an embedding site's server, once. It has no
-  cooldown: one server checks the tokens of all its visitors.
+  cooldown: one server checks the tokens of all its visitors. It names the site the token
+  was earned on (None if the browser sent no Referer), so a server can refuse tokens that
+  visitors solved on another site's widget.
 - ``Captcha.redeem`` does the same in process, for our own certificate form.
 """
 
@@ -189,8 +191,11 @@ def build_captcha(
             return session
 
     @router.post("/siteverify")
-    def siteverify(response: Annotated[str, Form()] = "") -> dict[str, bool]:
-        return {"success": redeem(response) is not None}
+    def siteverify(response: Annotated[str, Form()] = "") -> dict[str, bool | str | None]:
+        session = redeem(response)
+        if session is None:
+            return {"success": False}
+        return {"success": True, "site": session.site}
 
     @router.get("/embed.js")
     def embed() -> Response:

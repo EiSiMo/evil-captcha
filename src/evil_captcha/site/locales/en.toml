@@ -74,7 +74,7 @@ intro = "Keep chatbots out of your forms. No sign-up, no keys: two steps and you
 snippet_heading = "1. Add the snippet to your form"
 snippet = "Paste it inside your **<form>**, where the captcha should appear. Once solved, your form sends a pass token in the field **evil-captcha-response**."
 check_heading = "2. Check the pass token on your server"
-check = "Before you accept the form, send the pass token to us. Accept it only if the answer is **\"success\": true**."
+check = "Before you accept the form, send the pass token to us. Accept it only if the answer is **\"success\": true** and **\"site\"** is your own origin, so tokens solved on other sites are refused."
 notes_heading = "Good to know"
 notes = [
   "A pass token works once and expires after {pass_ttl_minutes} minutes.",
