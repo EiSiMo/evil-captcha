@@ -63,6 +63,7 @@ copy_failed = "Copy failed"
 [nav]
 label = "Site"
 home = "Home"
+info = "About"
 verify = "Verify"
 docs = "For websites"
 github = "GitHub"
@@ -72,6 +73,57 @@ privacy = "Privacy"
 [snippet]
 link = "Solve the captcha"
 paste = "and paste your pass token:"
+
+# Placeholders: {captcha} in intro, spelled out on hover; {retention_days} in paragraphs.
+[info]
+title = "About evilCAPTCHA"
+intro = "A new kind of {captcha} that reliably keeps modern AI agents out of your forms, your sign-ups and your data."
+captcha_spelled_out = "Completely Automated Public Turing test to tell Computers and Humans Apart"
+try_it = "Try it"
+use_it = "Use it"
+shape_it = "Shape it"
+
+[[info.sections]]
+heading = "Why?"
+paragraphs = [
+  "Because the CAPTCHAs we have used so far no longer stop AI. Today's models see and read as well as we do, and they can operate a real browser. A warped, colorful number is a joke to them.",
+  "So we need something new.",
+]
+
+[[info.sections]]
+heading = "How?"
+paragraphs = [
+  "evilCAPTCHA no longer tests what you **can** do, because AI can now do anything a human can do on a computer. It tests what you are **willing** to do. We call this proof of immorality: it asks you for something immoral, which AI models refuse because of the guardrails trained deep into them.",
+  "For example, it asks you to falsely accuse a celebrity, write a fake news headline, or worse.",
+  "Your answer is then checked by a small, fast AI model against the task's criteria. Yes, an AI decides whether you are human. We see the irony.",
+]
+
+[[info.sections]]
+heading = "Does it work?"
+paragraphs = [
+  "As long as AI behaves better than we do, yes.",
+  "In our tests, today's frontier models reliably refuse the tasks. Older models or jailbroken local models can pass.",
+  "So it won't stop a determined attacker who puts in the work. But it does keep out most bots and casual AI agents.",
+]
+
+[[info.sections]]
+heading = "Private?"
+paragraphs = [
+  "We never store your IP address or your name. Your answers are logged without either and deleted after {retention_days} days. Nothing you write is published or sent to anyone.",
+]
+
+[[info.sections]]
+heading = "Immoral?"
+paragraphs = [
+  "Yes. That's the point. Are we heading into a world where what sets natural intelligence apart from artificial intelligence is our evil side?",
+  "The Turing test asked whether a machine can seem human. This one asks whether a human is still willing to seem worse than a machine.",
+]
+
+[[info.sections]]
+heading = "Scope"
+paragraphs = [
+  "This project sits at the intersection of art, technology and philosophy, and it is still a proof of concept. It is meant to start a discussion, and you are welcome to join in and help shape it on GitHub.",
+]
 
 # Placeholders in notes: {pass_ttl_minutes}, {cooldown_s}.
 [docs]

@@ -122,6 +122,7 @@ def build_site(
     docs = templates.get_template("docs.html").render(
         t=texts, lang=lang, public_url=PUBLIC_URL, facts=facts
     )
+    info = templates.get_template("info.html").render(t=texts, lang=lang, facts=facts)
 
     def render(
         session: Session, holder: str = "", notice: str | None = None, status: int = 200
@@ -286,6 +287,10 @@ def build_site(
     @public.get("/privacy", response_class=HTMLResponse)
     def privacy() -> str:
         return privacy_notice
+
+    @public.get("/info", response_class=HTMLResponse)
+    def about() -> str:
+        return info
 
     @public.get("/docs", response_class=HTMLResponse)
     def documentation() -> str:

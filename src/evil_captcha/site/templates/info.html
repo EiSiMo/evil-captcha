@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% set active_page = "/info" %}
+{% block title %}{{ t.info.title }}{% endblock %}
+{% block style %}
+  <style>
+    .card h2 { margin: 28px 0 6px; font-size: 1.05rem; }
+    .card p { margin: 0 0 12px; color: #333; }
+    abbr[title] { text-decoration: underline dotted; cursor: help; }
+    .next { display: flex; justify-content: center; gap: 24px; margin-top: 28px; font-weight: 600; }
+    .next a { color: #1a73e8; text-decoration: none; }
+    .next a:hover { text-decoration: underline; }
+  </style>
+{% endblock %}
+{% block body %}
+  <main class="card">
+    <h1>{{ t.info.title }}</h1>
+    {# The intro names the CAPTCHA once, spelled out on hover. #}
+    {% set captcha %}<abbr title="{{ t.info.captcha_spelled_out }}">CAPTCHA</abbr>{% endset %}
+    <p>{{ t.info.intro | emphasis | replace("{captcha}", captcha) }}</p>
+    {% for section in t.info.sections %}
+      <h2>{{ section.heading }}</h2>
+      {% for paragraph in section.paragraphs %}<p>{{ paragraph.format(**facts) | emphasis }}</p>{% endfor %}
+    {% endfor %}
+    <nav class="next">
+      <a href="/">{{ t.info.try_it }}</a>
+      <a href="/docs">{{ t.info.use_it }}</a>
+      <a href="https://github.com/EiSiMo/evil-captcha">{{ t.info.shape_it }}</a>
+    </nav>
+  </main>
+{% endblock %}

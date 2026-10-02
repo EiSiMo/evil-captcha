@@ -709,7 +709,7 @@ def test_privacy_notice_names_the_contact_and_the_retention(harness: Harness) ->
 
 
 GITHUB = "https://github.com/EiSiMo/evil-captcha"
-NAVIGATION = ["/", "/verify", "/docs", GITHUB, "/privacy"]
+NAVIGATION = ["/", "/info", "/verify", "/docs", GITHUB, "/privacy"]
 
 
 def test_every_page_shows_the_navigation_below_its_card_and_marks_itself(
@@ -718,6 +718,7 @@ def test_every_page_shows_the_navigation_below_its_card_and_marks_itself(
     pages = [
         ("/", harness.agent.get("/")),
         ("/", harness.apply()),  # the certificate belongs to the start page
+        ("/info", harness.agent.get("/info")),
         ("/verify", harness.agent.get("/verify")),
         ("/docs", harness.agent.get("/docs")),
         ("/privacy", harness.agent.get("/privacy")),
@@ -732,10 +733,22 @@ def test_every_page_shows_the_navigation_below_its_card_and_marks_itself(
         assert navigation.count('aria-current="page"') == (1 if current else 0)
 
 
-def test_widget_links_github_and_privacy(harness: Harness) -> None:
+def test_info_explains_the_project(harness: Harness) -> None:
+    page = harness.browser().get("/info")
+
+    assert page.status_code == 200
+    assert "proof of immorality" in page.text
+    assert '<abbr title="Completely Automated Public Turing test' in page.text
+    assert f"{ACTIVITY_RETENTION_DAYS} days" in page.text
+    for target in ["/", "/docs", GITHUB]:  # try it, use it, shape it
+        assert f'href="{target}"' in page.text.split("</main>")[0]
+    assert "set-cookie" not in page.headers
+
+
+def test_widget_links_info_github_and_privacy(harness: Harness) -> None:
     page = harness.open_widget()
 
-    for target in [GITHUB, "/privacy"]:
+    for target in ["/info", GITHUB, "/privacy"]:
         assert f'href="{target}" target="_blank"' in page.text
 
 
@@ -808,6 +821,7 @@ def test_pages_show_texts_not_python_objects(harness: Harness) -> None:
         harness.agent.get("/verify"),
         harness.agent.post("/verify", data={"certificate": "Ada"}),
         harness.agent.get("/privacy"),
+        harness.agent.get("/info"),
     ]
 
     for page in pages:
@@ -817,7 +831,9 @@ def test_pages_show_texts_not_python_objects(harness: Harness) -> None:
 # Framing: only the widget may be embedded by other sites.
 
 
-@pytest.mark.parametrize("path", ["/", "/docs", "/certificate", "/verify", "/privacy", "/nope"])
+@pytest.mark.parametrize(
+    "path", ["/", "/info", "/docs", "/certificate", "/verify", "/privacy", "/nope"]
+)
 def test_pages_refuse_to_be_framed(harness: Harness, path: str) -> None:
     response = harness.agent.get(path)
 
