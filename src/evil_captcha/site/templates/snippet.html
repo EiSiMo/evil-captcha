@@ -1,0 +1,10 @@
+{# The snippet sites paste to embed the captcha. Plain HTML, so it works without
+   JavaScript (agents follow the link); embed.js turns it into the framed widget.
+   Our own form renders it too, so the docs show exactly what we use. #}
+{% macro snippet(base_url) -%}
+<div class="evil-captcha">
+  <a href="{{ base_url }}/widget">{{ t.snippet.link }}</a>
+  <label>{{ t.snippet.paste }} <input name="evil-captcha-response" required></label>
+</div>
+<script src="{{ base_url }}/embed.js" async></script>
+{%- endmacro %}

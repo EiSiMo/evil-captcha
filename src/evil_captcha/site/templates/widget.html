@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+{% block meta %}<meta name="robots" content="noindex">{% endblock %}
+{% block title %}{{ t.site_name }}{% endblock %}
+{% block style %}
+  <script>
+    // Before first paint, so a framed widget never flashes the standalone page.
+    document.documentElement.classList.add("js");
+    if (window.parent !== window) document.documentElement.classList.add("embedded");
+    try {
+      if (sessionStorage.getItem("content-warning-seen")) document.documentElement.classList.add("warning-seen");
+    } catch (error) {
+      console.warn("cannot read whether the content warning was seen", error);
+    }
+  </script>
+  <style>
+    /* The widget mimics the classic checkbox captcha, but works without JavaScript:
+       the challenge is a plain <details> disclosure inside the plain HTML form. */
+    .captcha { font: 14px Roboto, helvetica, arial, sans-serif; color: #000; line-height: normal; width: 302px; }
+    .captcha summary { list-style: none; cursor: pointer; }
+    .captcha summary::-webkit-details-marker { display: none; }
+    .anchor {
+      box-sizing: border-box; width: 302px; height: 76px; display: flex; align-items: center;
+      background: #f9f9f9; border: 1px solid #d3d3d3; border-radius: 3px;
+      box-shadow: 0 0 4px 1px rgba(0, 0, 0, .08);
+    }
+    .check { position: relative; width: 28px; height: 28px; margin: 0 12px; flex: none; }
+    .checkbox {
+      position: absolute; inset: 0; box-sizing: border-box;
+      background: #fff; border: 2px solid #c1c1c1; border-radius: 2px;
+    }
+    .spinner, .check .checkmark { position: absolute; inset: 0; width: 28px; height: 28px; visibility: hidden; }
+    summary:hover .checkbox { border-color: #b2b2b2; }
+    summary:focus-visible .checkbox { border-color: #4d90fe; }
+    .passed .checkmark { width: 28px; height: 28px; margin: 0 12px; flex: none; }
+    .label { flex: 1; }
+    .brand { width: 112px; margin-right: 4px; white-space: nowrap; text-align: center; color: #555; }
+    .brand svg { width: 32px; height: 32px; display: block; margin: 0 auto 2px; }
+    .brand-name { font-size: 10px; }
+    .brand-line { font-size: 8px; }
+    .brand-line a { color: #555; text-decoration: none; }
+    .brand-line a:hover { text-decoration: underline; }
+
+    .challenge {
+      box-sizing: border-box; width: 400px; max-width: calc(100vw - 2rem); margin-top: 8px;
+      background: #fff; border: 1px solid #ccc; box-shadow: 2px 2px 3px rgba(0, 0, 0, .2);
+    }
+    .challenge-header { margin: 7px; padding: 24px; background: #1a73e8; color: #fff; }
+    .challenge-header p { margin: 0; }
+    .challenge-task { font-size: 20px; font-weight: 700; line-height: 1.3; margin: 4px 0 !important; }
+    .challenge textarea {
+      display: block; box-sizing: border-box; width: calc(100% - 14px); min-height: 10rem; margin: 0 7px;
+      font: 14px Roboto, helvetica, arial, sans-serif; border: 1px solid #ccc; padding: 8px; resize: vertical;
+    }
+    .challenge-error { margin: 8px 7px 0; color: #d93025; }
+    .challenge-footer { display: flex; justify-content: flex-end; margin-top: 7px; padding: 8px 7px; border-top: 1px solid #dfdfdf; }
+    .verify {
+      padding: 0 24px; height: 42px; border: 0; border-radius: 2px; cursor: pointer;
+      background: #1a73e8; color: #fff; font: 500 14px Roboto, helvetica, arial, sans-serif; text-transform: uppercase;
+    }
+    .verify:hover { background: #1765cc; }
+
+    /* With JavaScript the widget animates like the classic checkbox captcha:
+       the checkbox turns into a spinner, the challenge pops up beside it,
+       answers are checked in place and success draws a checkmark. */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes arc {  /* the spinner's arc grows and shrinks while it turns */
+      0% { stroke-dasharray: 1 80; stroke-dashoffset: 0; }
+      50% { stroke-dasharray: 50 80; stroke-dashoffset: -15; }
+      100% { stroke-dasharray: 50 80; stroke-dashoffset: -66; }
+    }
+    @keyframes draw { from { stroke-dashoffset: 34; } }
+    @keyframes enter { from { opacity: 0; transform: translateX(12px); } }
+    .js .captcha { position: relative; }
+    .js .checkbox { transition: opacity .2s, transform .2s ease-in; }
+    .js .spinner { visibility: visible; opacity: 0; transform: scale(.3); transition: opacity .2s, transform .25s ease-out; }
+    .js .spinner circle { stroke-linecap: round; animation: arc 1.2s ease-in-out infinite; }
+    .js .spinner g { transform-origin: 14px 14px; animation: spin 1.6s linear infinite; }
+    .js .captcha.busy .checkbox, .js .captcha.done .checkbox { opacity: 0; transform: scale(0); }
+    .js .captcha.busy .spinner { opacity: 1; transform: none; }
+    .js .captcha.done .check .checkmark { visibility: visible; }
+    .js .captcha.done .check .checkmark path { stroke-dasharray: 34; animation: draw .4s .15s ease-out backwards; }
+    .js .backdrop {
+      position: fixed; inset: 0; z-index: 1; background: rgba(255, 255, 255, .5);
+      opacity: 0; transition: opacity .2s;
+    }
+    .js .challenge {
+      position: absolute; z-index: 2; left: 58px; top: -70px; margin-top: 0;
+      opacity: 0; transform: translateX(-8px); transition: opacity .2s, transform .2s;
+    }
+    .js .challenge::before {  /* the arrow pointing at the checkbox */
+      content: ""; position: absolute; left: -11px; top: 97px; border: 11px solid transparent;
+      border-left: 0; border-right-color: #ccc;
+    }
+    .js .challenge::after {
+      content: ""; position: absolute; left: -10px; top: 98px; border: 10px solid transparent;
+      border-left: 0; border-right-color: #fff;
+    }
+    .js .captcha.shown .backdrop { opacity: 1; }
+    .js .captcha.shown .challenge { opacity: 1; transform: none; }
+    .js .challenge.entering > * { animation: enter .3s ease-out; }
+    .js .challenge .verifying-overlay { display: none; }
+    .js .captcha.verifying .verifying-overlay {
+      display: flex; position: absolute; inset: 0; align-items: center; justify-content: center;
+      background: rgba(255, 255, 255, .75);
+    }
+    .verifying-overlay span {
+      width: 32px; height: 32px; box-sizing: border-box; border-radius: 50%;
+      border: 3px solid #1a73e8; border-left-color: transparent; animation: spin .8s linear infinite;
+    }
+    @media (max-width: 760px) {
+      /* Centered in the viewport, which shrinks above the on-screen keyboard
+         (interactive-widget=resizes-content); taller popups scroll. */
+      .js .challenge {
+        position: fixed; left: 50%; top: 50%; transform: translate(-50%, -46%);
+        max-height: calc(100dvh - 2rem); overflow-y: auto;
+      }
+      .js .captcha.shown .challenge { transform: translate(-50%, -50%); }
+      .js .challenge::before, .js .challenge::after { display: none; }
+    }
+
+    /* The content warning lives inside the popup, so it travels with an embedded captcha.
+       Without JavaScript it is a notice above the task; with it, it replaces the task
+       until continued, once per browser session. */
+    .challenge-warning { margin: 7px; padding: 0 17px; }
+    .challenge-warning h2 { margin: 17px 0 8px; font-size: 20px; }
+    .challenge-warning a { color: #1a73e8; }
+    .challenge-warning .challenge-footer { display: none; }
+    .js .challenge-warning .challenge-footer { display: flex; align-items: center; gap: 8px; margin: 7px -24px -7px; }
+    .cancel {
+      padding: 0 16px; height: 42px; border: 0; border-radius: 2px; cursor: pointer; background: none;
+      color: #555; font: 500 14px Roboto, helvetica, arial, sans-serif; text-transform: uppercase;
+    }
+    .cancel:hover { background: #f1f1f1; }
+    .js:not(.warning-seen) .challenge > :not(.challenge-warning), .js.warning-seen .challenge-warning { display: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .js .captcha *, .js .captcha *::before, .js .captcha *::after { animation: none !important; transition: none !important; }
+    }
+
+    /* Standalone, the widget is a card; after a pass it shows the pass token to paste. */
+    .widget-card { width: fit-content; }
+    .pass { max-width: 302px; margin-top: 16px; }
+    .pass p { margin: 0 0 6px; color: #555; font-size: .9rem; }
+    #pass-token {
+      margin: 0; padding: 10px 12px; background: #f7f7f8; border: 1px solid #e3e3e3; border-radius: 8px;
+      font: 13px/1.4 ui-monospace, monospace; overflow-wrap: anywhere; white-space: pre-wrap; user-select: all;
+    }
+
+    /* Framed by embed.js, the widget is just the box. While the popup is open the frame
+       covers the whole page, and the box stays where the page put it (--x, --y). */
+    .embedded body { margin: 0; max-width: none; background: transparent; overflow: hidden; }
+    .embedded .widget-card { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+    .embedded footer, .embedded .pass { display: none; }
+    .embedded .captcha { position: fixed; left: calc(var(--x, 0px) + 1px); top: calc(var(--y, 0px) + 1px); }
+  </style>
+{% endblock %}
+{% block body %}
+  <main class="card widget-card">
+    <form id="widget" method="post" action="/widget">
+      <input type="hidden" name="session" value="{{ session }}">
+      {% macro brand() %}
+        <div class="brand">
+          {% include "devil.svg" %}
+          <div class="brand-name">{{ t.captcha_brand }}</div>
+          <div class="brand-line"><a href="https://github.com/EiSiMo/evil-captcha" target="_blank">{{ t.github_link }}</a> - <a href="/privacy" target="_blank">{{ t.privacy.link }}</a></div>
+        </div>
+      {% endmacro %}
+      {% if passed %}
+        <div class="captcha passed">
+          <div class="anchor">
+            <svg class="checkmark" viewBox="0 0 28 28" aria-hidden="true"><path d="M3 15l7 7L25 5" fill="none" stroke="#009e55" stroke-width="4"/></svg>
+            <span class="label">{{ t.captcha_checkbox }}</span>
+            {{ brand() }}
+          </div>
+        </div>
+        {% if pass_token %}
+          <div class="pass" data-token="{{ pass_token }}">
+            <p>{{ t.pass_token_intro.format(minutes=pass_ttl_minutes) }}</p>
+            <pre id="pass-token">{{ pass_token }}</pre>
+          </div>
+        {% endif %}
+      {% else %}
+        <details class="captcha"{% if notice %} open{% endif %}>
+          <summary class="anchor">
+            <span class="check">
+              <span class="checkbox" role="checkbox" aria-checked="false"></span>
+              <svg class="spinner" viewBox="0 0 28 28" aria-hidden="true"><g><circle cx="14" cy="14" r="11" fill="none" stroke="#4d90fe" stroke-width="3"/></g></svg>
+              <svg class="checkmark" viewBox="0 0 28 28" aria-hidden="true"><path d="M3 15l7 7L25 5" fill="none" stroke="#009e55" stroke-width="4"/></svg>
+            </span>
+            <span class="label">{{ t.captcha_checkbox }}</span>
+            {{ brand() }}
+          </summary>
+          <div class="backdrop"></div>
+          <div class="challenge">
+            <div class="challenge-warning">
+              <h2>{{ t.content_warning_title }}</h2>
+              <p>{{ t.content_warning | emphasis }}</p>
+              <p>{{ t.content_warning_help }} <a href="https://findahelpline.com" target="_blank">findahelpline.com</a></p>
+              <div class="challenge-footer">
+                <button class="cancel" type="button">{{ t.content_warning_cancel }}</button>
+                <button class="verify continue" type="button">{{ t.content_warning_continue }}</button>
+              </div>
+            </div>
+            <div class="challenge-header">
+              <p>{{ t.instructions }}</p>
+              <p class="challenge-task" id="task">{{ task }}</p>
+              <p>{{ t.challenge_hint }}</p>
+            </div>
+            <input type="hidden" name="challenge_id" value="{{ challenge_id }}">
+            <textarea id="answer" name="answer" aria-label="{{ t.answer_label }}" placeholder="{{ t.answer_label }}" maxlength="{{ answer_max_length }}" required></textarea>
+            {% if notice %}<p class="challenge-error" role="alert">{{ notice }}</p>{% endif %}
+            <div class="challenge-footer">
+              <button class="verify" type="submit">{{ t.submit }}</button>
+            </div>
+            <div class="verifying-overlay" aria-hidden="true"><span></span></div>
+          </div>
+        </details>
+      {% endif %}
+    </form>
+  </main>
+{% endblock %}
+{% block script %}
+  <script>
+    // Progressive enhancement: everything above works as plain HTML forms, which is how
+    // agents without a browser use it. This script only adds the animated flow and, when
+    // framed by embed.js, talks to the page around it:
+    //   widget -> page  {type: "layout", overlay}  cover the page (popup open) or shrink back
+    //   page -> widget  {type: "place", overlay, left, top}  where the box sits in the page
+    //   widget -> page  {type: "placed"}  the box is in place, show the frame again
+    //   widget -> page  {type: "pass", token}  the visitor passed; fill in the pass token
+    (() => {
+      const motion = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, motion ? ms : 0));
+      const frame = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const embedded = window.parent !== window;
+      const tell = (message) => window.parent.postMessage({ source: "evil-captcha", ...message }, "*");
+
+      let overlay = false;
+      let placed = null;  // resolves the pending layout change
+      addEventListener("message", async (event) => {
+        const message = event.data;
+        if (event.source !== window.parent || message?.source !== "evil-captcha" || message.type !== "place") return;
+        const root = document.documentElement;
+        root.style.setProperty("--x", `${message.overlay ? message.left : 0}px`);
+        root.style.setProperty("--y", `${message.overlay ? message.top : 0}px`);
+        await frame();
+        tell({ type: "placed" });
+        placed?.();
+        placed = null;
+      });
+
+      // Framed, the popup needs the whole page: the frame covers it while the popup is open.
+      async function layout(cover) {
+        if (!embedded || overlay === cover) return;
+        overlay = cover;
+        const done = new Promise((resolve) => { placed = resolve; });
+        tell({ type: "layout", overlay: cover });
+        await done;
+      }
+
+      // Until continued, the popup shows the content warning instead of the task.
+      const warning = () => !document.documentElement.classList.contains("warning-seen");
+
+      async function show(widget) {
+        await layout(true);
+        widget.open = true;
+        await frame();
+        widget.classList.add("shown");
+        widget.querySelector(warning() ? ".continue" : "textarea").focus();
+      }
+
+      async function proceed(widget) {
+        try {
+          sessionStorage.setItem("content-warning-seen", "1");
+        } catch (error) {
+          console.warn("cannot remember that the content warning was seen", error);
+        }
+        document.documentElement.classList.add("warning-seen");
+        const challenge = widget.querySelector(".challenge");
+        challenge.classList.remove("entering");
+        await frame();
+        challenge.classList.add("entering");
+        challenge.querySelector("textarea").focus();
+      }
+
+      async function hide(widget) {
+        widget.classList.remove("shown");
+        await wait(200);
+        widget.open = false;
+        await layout(false);
+      }
+
+      async function verify(widget, form) {
+        const challenge = widget.querySelector(".challenge");
+        if (!challenge.querySelector("textarea").reportValidity()) return;
+        widget.classList.add("verifying");
+        let next;
+        try {
+          const response = await fetch(form.action, {
+            method: "POST",
+            body: new URLSearchParams(new FormData(form)),
+          });
+          const page = new DOMParser().parseFromString(await response.text(), "text/html");
+          next = page.getElementById("widget");
+          if (!next) throw new Error(`unexpected response with status ${response.status}`);
+        } catch (error) {
+          console.error("checking the answer in place failed, submitting the page instead", error);
+          form.submit();
+          return;
+        }
+        widget.classList.remove("verifying");
+        const pass = next.querySelector(".pass");
+        if (pass) {
+          await hide(widget);
+          widget.classList.add("busy");
+          await wait(700);
+          widget.classList.replace("busy", "done");
+          await wait(700);
+          form.replaceChildren(...next.childNodes);
+          if (embedded) tell({ type: "pass", token: pass.dataset.token });
+          return;
+        }
+        // Rejected, stale or throttled: the popup stays and shows the new task and the notice.
+        const fresh = next.querySelector(".challenge");
+        challenge.classList.remove("entering");
+        challenge.replaceChildren(...fresh.childNodes);
+        await frame();
+        challenge.classList.add("entering");
+        challenge.querySelector("textarea").focus();
+      }
+
+      function enhance(form) {
+        const widget = form.querySelector("details.captcha");
+        if (!widget) return;
+        widget.querySelector("summary").addEventListener("click", async (event) => {
+          if (event.target.closest("a")) return;  // the brand's links navigate as usual
+          event.preventDefault();
+          if (widget.open || widget.classList.contains("busy")) return;
+          await layout(true);
+          widget.classList.add("busy");
+          await wait(900);
+          widget.classList.remove("busy");
+          await show(widget);
+        });
+        widget.querySelector(".backdrop").addEventListener("click", () => hide(widget));
+        // Delegated: a rejected answer replaces the popup's contents, buttons included.
+        widget.querySelector(".challenge").addEventListener("click", (event) => {
+          if (event.target.closest(".cancel")) hide(widget);
+          else if (event.target.closest(".continue")) proceed(widget);
+        });
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          if (widget.classList.contains("shown") && !widget.classList.contains("verifying") && !warning()) verify(widget, form);
+        });
+        // In the answer, Enter verifies and Shift+Enter inserts a newline.
+        form.addEventListener("keydown", (event) => {
+          if (event.target.matches("textarea") && event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+            event.preventDefault();
+            form.requestSubmit(widget.querySelector(".verify[type=submit]"));
+          }
+        });
+        if (widget.open) show(widget);
+      }
+
+      const form = document.getElementById("widget");
+      enhance(form);
+      // A pass shown on load (the page was submitted without the in-place check) still counts.
+      const pass = form.querySelector(".pass");
+      if (embedded && pass) tell({ type: "pass", token: pass.dataset.token });
+    })();
+  </script>
+{% endblock %}

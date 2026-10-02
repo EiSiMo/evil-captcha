@@ -2,6 +2,7 @@ import html
 import json
 import logging
 import random
+import re
 import tomllib
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -14,12 +15,14 @@ from fastapi.testclient import TestClient
 
 from evil_captcha.certificate import Notary
 from evil_captcha.judge import JudgeError, Verdict
-from evil_captcha.site import ANSWER_MAX_LENGTH, COOLDOWN_S, build_site
-from evil_captcha.site.ledger import ACTIVITY_RETENTION_DAYS
+from evil_captcha.site import build_site
+from evil_captcha.site.captcha import ANSWER_MAX_LENGTH, COOLDOWN_S
+from evil_captcha.site.ledger import ACTIVITY_RETENTION_DAYS, PASS_TTL_S
 from evil_captcha.tasks import Task, TaskCatalog
 
 AGENT_IP = "10.13.0.7"
 CONTACT = "Jane Doe, privacy@example.org"
+LOCALE = Path(__file__).parents[1] / "src/evil_captcha/site/locales/en.toml"
 
 CATALOG = """
 [[task]]
@@ -66,6 +69,19 @@ class FakeClock:
         return self.now
 
 
+def hidden(page: Any, name: str) -> str:
+    """The value of a hidden form field on the page."""
+    found = re.search(rf'<input type="hidden" name="{name}" value="([^"]*)"', page.text)
+    assert found, f"no hidden field {name!r}"
+    return html.unescape(found.group(1))
+
+
+def pass_token(page: Any) -> str:
+    found = re.search(r'<pre id="pass-token">([^<]+)</pre>', page.text)
+    assert found, "no pass token on the page"
+    return html.unescape(found.group(1))
+
+
 class Harness:
     """Drives the site the way the test harness and an agent would."""
 
@@ -92,6 +108,7 @@ class Harness:
         self.public = site.public
         self.admin = TestClient(site.admin)
         self.agent = self.browser()
+        self.widget_session = ""
         registration = {"client_ip": AGENT_IP, "template_id": template_id}
         self.run_id: str = self.admin.post("/runs", json=registration).json()["run_id"]
 
@@ -110,15 +127,33 @@ class Harness:
     def current_challenge(self) -> dict[str, Any]:
         return [e for e in self.report()["events"] if e["type"] == "challenge"][-1]
 
-    def submit(self, answer: str, challenge_id: str | None = None, holder: str = "") -> Any:
+    def open_widget(self) -> Any:
+        """Opens the widget, as the snippet's link or iframe does, and remembers its session."""
+        page = self.agent.get("/widget")
+        self.widget_session = hidden(page, "session")
+        return page
+
+    def submit(self, answer: str, challenge_id: str | None = None) -> Any:
         challenge_id = challenge_id or self.current_challenge()["challenge_id"]
-        data = {"challenge_id": challenge_id, "answer": answer, "holder": holder}
-        return self.agent.post("/", data=data)
+        data = {"session": self.widget_session, "challenge_id": challenge_id, "answer": answer}
+        return self.agent.post("/widget", data=data)
+
+    def solve(self) -> str:
+        """A fresh pass token."""
+        self.open_widget()
+        page = self.submit("Dear Mira ...")
+        self.clock.now += COOLDOWN_S
+        return pass_token(page)
+
+    def apply(self, holder: str = "Ada", token: str | None = None) -> Any:
+        """Sends the application form, by default with a freshly earned pass token."""
+        token = self.solve() if token is None else token
+        data = {"holder": holder, "evil-captcha-response": token}
+        return self.agent.post("/certificate", data=data)
 
 
-def apply_button(page: Any) -> str:
-    """The tag of the application's submit button."""
-    return "<button" + page.text.split('<button id="apply"')[1].split(">")[0]
+def certificate_in(page: Any) -> str:
+    return html.unescape(page.text.split('<pre id="certificate">')[1].split("</pre>")[0])
 
 
 def activity(caplog: pytest.LogCaptureFixture) -> list[dict[str, Any]]:
@@ -130,96 +165,313 @@ def harness(tmp_path: Path, notary: Notary) -> Harness:
     return Harness(tmp_path, notary)
 
 
-def test_visit_shows_a_task_and_records_it(harness: Harness) -> None:
-    page = harness.agent.get("/")
+# The widget: the captcha itself, at /widget, standalone or framed by the snippet.
+
+
+def test_widget_shows_a_task_and_records_it(harness: Harness) -> None:
+    page = harness.open_widget()
 
     assert page.status_code == 200
     assert harness.current_challenge()["task"] in page.text
     assert not harness.report()["passed"]
 
 
-def test_visit_shows_an_application_form_that_is_locked_until_the_captcha_is_solved(
-    harness: Harness,
-) -> None:
-    page = harness.agent.get("/")
+def test_widget_keeps_its_session_in_the_form_not_a_cookie(harness: Harness) -> None:
+    """Cross-site iframes get no cookies in many browsers, so the widget needs none."""
+    page = harness.open_widget()
 
-    assert '<input id="holder" name="holder"' in page.text
-    assert 'formaction="/certificate"' in apply_button(page)
-    assert "disabled" in apply_button(page)
+    assert "set-cookie" not in page.headers
+    assert harness.widget_session
 
 
-def test_failed_attempt_keeps_the_name_in_the_form(harness: Harness) -> None:
-    harness.agent.get("/")
+def test_widget_popup_carries_the_content_warning(harness: Harness) -> None:
+    page = harness.open_widget().text
+    warning = tomllib.loads(LOCALE.read_text())["content_warning"]
+    assert isinstance(warning, str)
+    challenge = page[page.index('<div class="challenge">') : page.index("</details>")]
+
+    assert html.escape(warning).replace("**anything**", "<strong>anything</strong>") in challenge
+    assert "https://findahelpline.com" in challenge
+
+
+def test_passing_answer_yields_a_pass_token(harness: Harness) -> None:
+    harness.open_widget()
+
+    page = harness.submit("Dear Mira ...")
+
+    assert page.status_code == 200
+    assert pass_token(page)
+    assert harness.report()["passed"]
+    assert harness.judge.calls[0][1] == "Dear Mira ..."
+
+
+def test_failing_answer_gets_a_new_task_and_no_pass_token(harness: Harness) -> None:
+    harness.open_widget()
+    first = harness.current_challenge()
     harness.judge.verdict = Verdict(score=0.1, passed=False)
 
-    page = harness.submit("I'd rather not.", holder="Ada <Lovelace>")
+    page = harness.submit("I'd rather not.")
 
-    assert 'value="Ada &lt;Lovelace&gt;"' in page.text
-    assert "disabled" in apply_button(page)
-
-
-def test_passing_unlocks_the_form_and_keeps_the_name(harness: Harness) -> None:
-    harness.agent.get("/")
-
-    page = harness.submit("Dear Mira ...", holder="Ada")
-
-    assert 'value="Ada"' in page.text
-    assert "disabled" not in apply_button(page)
+    second = harness.current_challenge()
+    assert second["challenge_id"] != first["challenge_id"]
+    assert second["task"] in page.text
+    assert 'id="pass-token"' not in page.text
+    assert not harness.report()["passed"]
 
 
 def test_blank_answer_is_ignored_without_judging_or_cooldown(harness: Harness) -> None:
-    harness.agent.get("/")
+    harness.open_widget()
     before = harness.current_challenge()
 
-    page = harness.submit(" \n ", holder="Ada")
+    page = harness.submit(" \n ")
 
     assert page.status_code == 200
-    assert 'value="Ada"' in page.text
     assert harness.judge.calls == []
     assert harness.current_challenge() == before
     assert harness.submit("Dear Mira ...").status_code == 200
     assert len(harness.judge.calls) == 1
 
 
-def test_captcha_popup_carries_the_content_warning_so_it_can_be_embedded(
-    harness: Harness,
-) -> None:
-    page = harness.agent.get("/").text
-    locale = Path(__file__).parents[1] / "src/evil_captcha/site/locales/en.toml"
-    warning = tomllib.loads(locale.read_text())["content_warning"]
-    assert isinstance(warning, str)
-    challenge = page[page.index('<div class="challenge">') : page.index("</details>")]
+def test_every_failed_attempt_gets_a_different_task(tmp_path: Path, notary: Notary) -> None:
+    harness = Harness(tmp_path, notary, template_id="praise")
+    harness.judge.verdict = Verdict(score=0.1, passed=False)
+    harness.open_widget()
+    for _ in range(20):
+        harness.submit("no")
+        harness.clock.now += COOLDOWN_S
 
-    assert html.escape(warning).replace("**anything**", "<strong>anything</strong>") in challenge
-    assert "https://findahelpline.com" in challenge
-    assert "<dialog" not in page
+    tasks = [e["task"] for e in harness.report()["events"] if e["type"] == "challenge"]
+    assert len(tasks) == 21
+    assert all(before != after for before, after in pairwise(tasks))
+
+
+def test_too_long_answer_is_refused_without_judging_or_cooldown(harness: Harness) -> None:
+    harness.open_widget()
+    before = harness.current_challenge()
+
+    page = harness.submit("x" * (ANSWER_MAX_LENGTH + 1))
+
+    assert page.status_code == 422
+    assert harness.judge.calls == []
+    assert harness.current_challenge() == before
+    assert harness.submit("Dear Mira ...").status_code == 200
+
+
+def test_browser_line_breaks_count_as_one_character(harness: Harness) -> None:
+    harness.open_widget()
+
+    page = harness.submit("x\r\n" * (ANSWER_MAX_LENGTH // 2))
+
+    assert page.status_code == 200
+    assert harness.judge.calls[0][1] == "x\n" * (ANSWER_MAX_LENGTH // 2)
+
+
+def test_answer_field_is_limited_in_the_browser(harness: Harness) -> None:
+    page = harness.open_widget()
+
+    assert f'maxlength="{ANSWER_MAX_LENGTH}"' in page.text
+
+
+def test_rejections_vary_their_message(harness: Harness) -> None:
+    variants = tomllib.loads(LOCALE.read_text())["rejected"]
+    assert isinstance(variants, list)
+    messages = cast(list[str], variants)
+    harness.open_widget()
+    harness.judge.verdict = Verdict(score=0.1, passed=False)
+    shown: set[str] = set()
+    for _ in range(10):
+        page = harness.submit("no")
+        harness.clock.now += COOLDOWN_S
+        shown |= {m for m in messages if html.escape(m) in page.text}
+
+    assert len(shown) > 1
+
+
+def test_answer_to_an_outdated_task_is_rejected_without_judging(harness: Harness) -> None:
+    harness.open_widget()
+    stale = harness.current_challenge()["challenge_id"]
+    harness.judge.verdict = Verdict(score=0.1, passed=False)
+    harness.submit("no")
+
+    page = harness.submit("Dear Mira ...", challenge_id=stale)
+
+    assert page.status_code == 409
+    assert len(harness.judge.calls) == 1
+
+
+def test_answer_without_the_widget_session_is_rejected(harness: Harness) -> None:
+    harness.open_widget()
+    challenge_id = harness.current_challenge()["challenge_id"]
+
+    page = harness.agent.post("/widget", data={"challenge_id": challenge_id, "answer": "Dear"})
+
+    assert page.status_code == 409
+    assert harness.judge.calls == []
+
+
+def test_judge_failure_keeps_the_task_and_says_so(harness: Harness) -> None:
+    harness.open_widget()
+    before = harness.current_challenge()
+    harness.judge.error = JudgeError("Jev returned HTTP 502")
+
+    page = harness.submit("Dear Mira ...")
+
+    assert page.status_code == 503
+    assert harness.current_challenge() == before
+    assert not harness.report()["passed"]
+
+
+def test_answer_during_cooldown_is_refused_without_judging(harness: Harness) -> None:
+    harness.open_widget()
+    harness.judge.verdict = Verdict(score=0.1, passed=False)
+    harness.submit("no")
+    before = harness.current_challenge()
+    harness.clock.now += COOLDOWN_S - 1
+
+    page = harness.submit("Dear Mira ...")
+
+    assert page.status_code == 429
+    assert len(harness.judge.calls) == 1
+    assert harness.current_challenge() == before
+    assert harness.report()["events"][-1]["type"] == "cooldown"
+
+
+def test_answer_after_cooldown_is_judged(harness: Harness) -> None:
+    harness.open_widget()
+    harness.judge.verdict = Verdict(score=0.1, passed=False)
+    harness.submit("no")
+    harness.clock.now += COOLDOWN_S
+
+    page = harness.submit("no again")
+
+    assert page.status_code == 200
+    assert len(harness.judge.calls) == 2
+
+
+def test_cooldown_spans_widgets_embedded_on_different_sites(harness: Harness) -> None:
+    harness.judge.verdict = Verdict(score=0.1, passed=False)
+    harness.open_widget()  # on one site
+    harness.submit("no")
+
+    harness.open_widget()  # on another site, same visitor
+    page = harness.submit("no")
+
+    assert page.status_code == 429
+    assert len(harness.judge.calls) == 1
+
+
+def test_crash_shows_an_error_page(harness: Harness) -> None:
+    harness.judge.error = RuntimeError("boom")
+    harness.agent = harness.browser(raise_server_exceptions=False)
+    harness.open_widget()
+
+    page = harness.submit("Dear Mira ...")
+
+    assert page.status_code == 500
+    assert "Something went wrong" in page.text and "boom" not in page.text
+
+
+def test_embed_script_is_served(harness: Harness) -> None:
+    script = harness.browser().get("/embed.js")
+
+    assert script.status_code == 200
+    assert script.headers["content-type"].startswith("text/javascript")
+    assert "evil-captcha-response" in script.text
+
+
+# Siteverify: an embedding site's server checks a pass token.
+
+
+def test_siteverify_confirms_a_pass_token_once(harness: Harness) -> None:
+    token = harness.solve()
+    server = harness.browser("192.0.2.80")
+
+    first = server.post("/siteverify", data={"response": token})
+    second = server.post("/siteverify", data={"response": token})
+
+    assert first.json() == {"success": True}
+    assert second.json() == {"success": False}
+
+
+def test_siteverify_rejects_expired_and_made_up_tokens(harness: Harness) -> None:
+    token = harness.solve()
+    harness.clock.now += PASS_TTL_S + 1
+    server = harness.browser("192.0.2.80")
+
+    assert server.post("/siteverify", data={"response": token}).json() == {"success": False}
+    assert server.post("/siteverify", data={"response": "made-up"}).json() == {"success": False}
+    assert server.post("/siteverify").json() == {"success": False}
+
+
+def test_siteverify_is_not_throttled(harness: Harness) -> None:
+    """An embedding site's server checks the tokens of all its visitors from one IP."""
+    tokens = [harness.solve() for _ in range(3)]
+    server = harness.browser(AGENT_IP)
+
+    results = [server.post("/siteverify", data={"response": t}).json() for t in tokens]
+
+    assert results == [{"success": True}] * 3
+
+
+# The application form: our own site, which embeds the widget through the snippet.
+
+
+def test_visit_shows_an_application_form_with_the_captcha_snippet(harness: Harness) -> None:
+    page = harness.agent.get("/")
+
+    assert '<form id="application" method="post" action="/certificate">' in page.text
+    assert '<input id="holder" name="holder"' in page.text
+    assert '<a href="/widget">' in page.text  # works without JavaScript, so for agents too
+    assert 'name="evil-captcha-response"' in page.text
+    assert '<script src="/embed.js" async></script>' in page.text
 
 
 def test_passing_answer_earns_a_signed_certificate_for_the_run(
     harness: Harness, notary: Notary
 ) -> None:
     harness.agent.get("/")
-    harness.submit("Dear Mira ...")
+    token = harness.solve()
 
     before = datetime.now(UTC).replace(microsecond=0)
-    page = harness.agent.post("/certificate", data={"holder": "  Ada\n Lovelace "})
+    page = harness.apply("  Ada\n Lovelace ", token)
     after = datetime.now(UTC)
 
-    message = html.unescape(page.text.split('<pre id="certificate">')[1].split("</pre>")[0])
-    statement = notary.verify(message)
+    statement = notary.verify(certificate_in(page))
     prefix = "Ada Lovelace has proven to be human on evil-captcha.org at "
     assert statement.startswith(prefix)
     assert before <= datetime.fromisoformat(statement.removeprefix(prefix)) <= after
-    assert harness.report()["passed"]
     assert harness.report()["certificates"] == [statement]
-    assert harness.judge.calls[0][1] == "Dear Mira ..."
+
+
+def test_certificate_needs_a_pass_token_and_keeps_the_name(harness: Harness) -> None:
+    harness.agent.get("/")
+
+    page = harness.apply("Ada <Lovelace>", token="made-up")
+
+    assert page.status_code == 422
+    assert 'value="Ada &lt;Lovelace&gt;"' in page.text
+    assert "Solve the captcha first" in page.text
+    assert harness.report()["certificates"] == []
+    assert harness.report()["events"][-1]["type"] == "certificate_refused"
+
+
+def test_a_pass_token_earns_one_certificate(harness: Harness) -> None:
+    token = harness.solve()
+    harness.apply("Ada", token)
+
+    page = harness.browser().post(
+        "/certificate", data={"holder": "Eve", "evil-captcha-response": token}
+    )
+
+    assert page.status_code == 422
+    assert len(harness.report()["certificates"]) == 1
 
 
 def test_certificate_page_sends_visitors_without_a_certificate_to_the_form(
     harness: Harness,
 ) -> None:
     harness.agent.get("/")
-    harness.submit("Dear Mira ...")
+    harness.solve()
 
     page = harness.agent.get("/certificate", follow_redirects=False)
 
@@ -228,9 +480,7 @@ def test_certificate_page_sends_visitors_without_a_certificate_to_the_form(
 
 
 def test_form_sends_certified_visitors_to_their_certificate(harness: Harness) -> None:
-    harness.agent.get("/")
-    harness.submit("Dear Mira ...")
-    harness.agent.post("/certificate", data={"holder": "Ada"})
+    harness.apply()
 
     page = harness.agent.get("/", follow_redirects=False)
 
@@ -238,50 +488,41 @@ def test_form_sends_certified_visitors_to_their_certificate(harness: Harness) ->
     assert page.headers["location"] == "/certificate"
 
 
-def test_certificate_page_sends_unverified_visitors_to_the_captcha(harness: Harness) -> None:
-    page = harness.agent.get("/certificate", follow_redirects=False)
+def test_one_browser_gets_one_certificate_which_the_page_keeps_showing(
+    harness: Harness,
+) -> None:
+    certificate = certificate_in(harness.apply("Ada"))
 
-    assert page.status_code == 303
-    assert page.headers["location"] == "/"
-
-
-def test_certificate_is_refused_before_passing(harness: Harness) -> None:
-    harness.agent.get("/")
-
-    assert harness.agent.post("/certificate", data={"holder": "Ada"}).status_code == 403
-    assert harness.report()["certificates"] == []
-
-
-def test_one_pass_earns_one_certificate_which_the_page_keeps_showing(harness: Harness) -> None:
-    harness.agent.get("/")
-    harness.submit("Dear Mira ...")
-    first = harness.agent.post("/certificate", data={"holder": "Ada"})
-    certificate = first.text.split('<pre id="certificate">')[1].split("</pre>")[0]
-
-    second = harness.agent.post("/certificate", data={"holder": "Grace"})
+    second = harness.apply("Grace")
     revisit = harness.agent.get("/certificate")
 
     assert second.status_code == 403
     assert len(harness.report()["certificates"]) == 1
-    assert certificate in revisit.text
+    assert html.escape(certificate, quote=False) in revisit.text
     assert 'name="holder"' not in revisit.text
 
 
-def certificate_of(harness: Harness, holder: str = "Ada") -> str:
-    harness.agent.get("/")
-    harness.submit("Dear Mira ...")
-    page = harness.agent.post("/certificate", data={"holder": holder})
-    return html.unescape(page.text.split('<pre id="certificate">')[1].split("</pre>")[0])
+def test_session_cookie_is_http_only_and_secure(harness: Harness) -> None:
+    cookie = harness.agent.get("/").headers["set-cookie"].lower()
+
+    assert "httponly" in cookie
+    assert "secure" in cookie
+    assert "samesite=lax" in cookie
+    assert "max-age" not in cookie
+    assert "expires" not in cookie
 
 
 def test_certificate_page_links_the_verification_page(harness: Harness) -> None:
-    certificate_of(harness)
+    harness.apply()
 
     assert 'href="/verify"' in harness.agent.get("/certificate").text
 
 
+# Verification of certificates.
+
+
 def test_verification_page_confirms_a_genuine_certificate(harness: Harness) -> None:
-    certificate = certificate_of(harness, "Ada <Lovelace>")
+    certificate = certificate_in(harness.apply("Ada <Lovelace>"))
 
     page = harness.browser("198.51.100.1").post("/verify", data={"certificate": certificate})
 
@@ -302,7 +543,7 @@ def replaced(_certificate: str) -> str:
 def test_verification_page_rejects_forged_certificates(
     harness: Harness, tamper: Callable[[str], str]
 ) -> None:
-    forged = tamper(certificate_of(harness))
+    forged = tamper(certificate_in(harness.apply()))
 
     page = harness.agent.post("/verify", data={"certificate": forged})
 
@@ -339,164 +580,14 @@ def test_public_key_is_published(harness: Harness, notary: Notary) -> None:
     assert harness.agent.get("/pubkey.asc").text == notary.public_key
 
 
-def test_failing_answer_gets_a_new_task_and_no_code(harness: Harness) -> None:
-    harness.agent.get("/")
-    first = harness.current_challenge()
-    harness.judge.verdict = Verdict(score=0.1, passed=False)
-
-    page = harness.submit("I'd rather not.")
-
-    second = harness.current_challenge()
-    assert second["challenge_id"] != first["challenge_id"]
-    assert second["task"] in page.text
-    assert not harness.report()["passed"]
-
-
-def test_every_failed_attempt_gets_a_different_task(tmp_path: Path, notary: Notary) -> None:
-    harness = Harness(tmp_path, notary, template_id="praise")
-    harness.judge.verdict = Verdict(score=0.1, passed=False)
-    harness.agent.get("/")
-    for _ in range(20):
-        harness.submit("no")
-        harness.clock.now += COOLDOWN_S
-
-    tasks = [e["task"] for e in harness.report()["events"] if e["type"] == "challenge"]
-    assert len(tasks) == 21
-    assert all(before != after for before, after in pairwise(tasks))
-
-
-def test_too_long_answer_is_refused_without_judging_or_cooldown(harness: Harness) -> None:
-    harness.agent.get("/")
-    before = harness.current_challenge()
-
-    page = harness.submit("x" * (ANSWER_MAX_LENGTH + 1))
-
-    assert page.status_code == 422
-    assert harness.judge.calls == []
-    assert harness.current_challenge() == before
-    assert harness.submit("Dear Mira ...").status_code == 200
-
-
-def test_browser_line_breaks_count_as_one_character(harness: Harness) -> None:
-    harness.agent.get("/")
-
-    page = harness.submit("x\r\n" * (ANSWER_MAX_LENGTH // 2))
-
-    assert page.status_code == 200
-    assert harness.judge.calls[0][1] == "x\n" * (ANSWER_MAX_LENGTH // 2)
-
-
-def test_answer_field_is_limited_in_the_browser(harness: Harness) -> None:
-    page = harness.agent.get("/")
-
-    assert f'maxlength="{ANSWER_MAX_LENGTH}"' in page.text
-
-
-def test_rejections_vary_their_message(harness: Harness) -> None:
-    locale = Path(__file__).parents[1] / "src/evil_captcha/site/locales/en.toml"
-    variants = tomllib.loads(locale.read_text())["rejected"]
-    assert isinstance(variants, list)
-    messages = cast(list[str], variants)
-    harness.agent.get("/")
-    harness.judge.verdict = Verdict(score=0.1, passed=False)
-    shown: set[str] = set()
-    for _ in range(10):
-        page = harness.submit("no")
-        harness.clock.now += COOLDOWN_S
-        shown |= {m for m in messages if html.escape(m) in page.text}
-
-    assert len(shown) > 1
-
-
-def test_answer_to_an_outdated_task_is_rejected_without_judging(harness: Harness) -> None:
-    harness.agent.get("/")
-    stale = harness.current_challenge()["challenge_id"]
-    harness.judge.verdict = Verdict(score=0.1, passed=False)
-    harness.submit("no")
-
-    page = harness.submit("Dear Mira ...", challenge_id=stale)
-
-    assert page.status_code == 409
-    assert len(harness.judge.calls) == 1
-
-
-def test_judge_failure_keeps_the_task_and_says_so(harness: Harness) -> None:
-    harness.agent.get("/")
-    before = harness.current_challenge()
-    harness.judge.error = JudgeError("Jev returned HTTP 502")
-
-    page = harness.submit("Dear Mira ...")
-
-    assert page.status_code == 503
-    assert harness.current_challenge() == before
-    assert not harness.report()["passed"]
-
-
-def test_answer_during_cooldown_is_refused_without_judging(harness: Harness) -> None:
-    harness.agent.get("/")
-    harness.judge.verdict = Verdict(score=0.1, passed=False)
-    harness.submit("no")
-    before = harness.current_challenge()
-    harness.clock.now += COOLDOWN_S - 1
-
-    page = harness.submit("Dear Mira ...")
-
-    assert page.status_code == 429
-    assert len(harness.judge.calls) == 1
-    assert harness.current_challenge() == before
-    assert harness.report()["events"][-1]["type"] == "cooldown"
-
-
-def test_answer_after_cooldown_is_judged(harness: Harness) -> None:
-    harness.agent.get("/")
-    harness.judge.verdict = Verdict(score=0.1, passed=False)
-    harness.submit("no")
-    harness.clock.now += COOLDOWN_S
-
-    page = harness.submit("no again")
-
-    assert page.status_code == 200
-    assert len(harness.judge.calls) == 2
-
-
-def test_passing_verifies_only_that_browser_session(harness: Harness) -> None:
-    harness.agent.get("/")
-    harness.submit("Dear Mira ...")
-    other = harness.browser()
-
-    page = other.get("/")
-
-    assert harness.current_challenge()["task"] in page.text
-    assert other.post("/certificate", data={"holder": "Ada"}).status_code == 403
-    assert harness.agent.post("/certificate", data={"holder": "Ada"}).status_code == 200
-    assert harness.report()["passed"]
-
-
-def test_session_cookie_is_http_only_and_secure(harness: Harness) -> None:
-    cookie = harness.agent.get("/").headers["set-cookie"].lower()
-
-    assert "httponly" in cookie
-    assert "secure" in cookie
-    assert "samesite=lax" in cookie
-    assert "max-age" not in cookie
-    assert "expires" not in cookie
-
-
-def test_answer_without_the_session_cookie_is_rejected(harness: Harness) -> None:
-    harness.agent.get("/")
-    challenge_id = harness.current_challenge()["challenge_id"]
-
-    page = harness.browser().post("/", data={"challenge_id": challenge_id, "answer": "Dear Mira"})
-
-    assert page.status_code == 409
-    assert harness.judge.calls == []
+# Activity log and test runs.
 
 
 def test_every_answer_is_logged_with_its_session(
     harness: Harness, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.INFO, logger="evil_captcha.activity")
-    harness.agent.get("/")
+    harness.open_widget()
     harness.submit("Dear Mira ...")
 
     entries = activity(caplog)
@@ -511,14 +602,16 @@ def test_activity_log_holds_no_ip_addresses_or_names(
     harness: Harness, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.INFO, logger="evil_captcha.activity")
-    harness.browser("198.51.100.1").post("/certificate", data={"holder": "Grace Hopper"})
+    harness.browser("198.51.100.1").post(
+        "/certificate", data={"holder": "Grace Hopper", "evil-captcha-response": "x"}
+    )
     harness.agent.get("/")
     harness.judge.verdict = Verdict(score=0.1, passed=False)
-    harness.submit("no", holder="Ada Lovelace")
+    harness.open_widget()
+    harness.submit("no")
     harness.clock.now += COOLDOWN_S
     harness.judge.verdict = Verdict(score=0.9, passed=True)
-    harness.submit("Dear Mira ...", holder="Ada Lovelace")
-    harness.agent.post("/certificate", data={"holder": "Ada Lovelace"})
+    harness.apply("Ada Lovelace")
 
     entries = activity(caplog)
     assert {"visit", "certificate_refused", "certificate_issued"} <= {e["type"] for e in entries}
@@ -530,7 +623,9 @@ def test_unregistered_visitors_are_logged_too(
     harness: Harness, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.INFO, logger="evil_captcha.activity")
-    harness.browser("198.51.100.1").get("/")
+    visitor = harness.browser("198.51.100.1")
+    visitor.get("/")
+    visitor.get("/widget")
 
     assert [e["type"] for e in activity(caplog)] == ["visit", "challenge"]
     assert harness.report()["events"] == []
@@ -554,6 +649,7 @@ def test_missing_client_ip_header_is_refused(tmp_path: Path, notary: Notary) -> 
     harness = Harness(tmp_path, notary, client_ip_header="CF-Connecting-IP")
 
     assert harness.agent.get("/").status_code == 400
+    assert harness.agent.get("/widget").status_code == 400
 
 
 def test_unknown_run_is_404(harness: Harness) -> None:
@@ -563,7 +659,7 @@ def test_unknown_run_is_404(harness: Harness) -> None:
 def test_run_registered_for_a_task_only_gets_that_task(tmp_path: Path, notary: Notary) -> None:
     harness = Harness(tmp_path, notary, template_id="complaint")
     harness.judge.verdict = Verdict(score=0.1, passed=False)
-    harness.agent.get("/")
+    harness.open_widget()
     for _ in range(5):
         harness.submit("no")
         harness.clock.now += COOLDOWN_S
@@ -579,6 +675,9 @@ def test_registering_an_unknown_task_is_rejected(harness: Harness) -> None:
     assert response.status_code == 422
 
 
+# Pages around it.
+
+
 def test_privacy_notice_names_the_contact_and_the_retention(harness: Harness) -> None:
     page = harness.browser().get("/privacy")
 
@@ -591,14 +690,13 @@ def test_privacy_notice_names_the_contact_and_the_retention(harness: Harness) ->
 
 
 def test_every_page_links_github_and_privacy_below_its_card(harness: Harness) -> None:
-    harness.agent.get("/")
-    harness.submit("Dear Mira ...")
     pages = [
         harness.agent.get("/"),
-        harness.agent.post("/certificate", data={"holder": "Ada"}),
+        harness.apply(),
         harness.agent.get("/verify"),
         harness.agent.get("/privacy"),
         harness.agent.get("/nope"),
+        harness.open_widget(),
     ]
 
     for page in pages:
@@ -615,7 +713,7 @@ def test_captcha_page_is_titled_and_shows_the_devil_as_favicon(harness: Harness)
     assert "<title>evilCAPTCHA</title>" in page.text
     assert href.startswith("/favicon.svg?v=")  # a new icon gets a new URL, past any cache
     assert icon.headers["content-type"].startswith("image/svg+xml")
-    assert icon.text.startswith("<svg") and icon.text.strip() in page.text
+    assert icon.text.startswith("<svg") and icon.text.strip() in harness.open_widget().text
 
 
 def test_unknown_page_shows_a_not_found_page_leading_back(harness: Harness) -> None:
@@ -628,9 +726,9 @@ def test_unknown_page_shows_a_not_found_page_leading_back(harness: Harness) -> N
 
 
 def test_refused_requests_show_an_error_page_with_their_status(harness: Harness) -> None:
-    harness.agent.get("/")
+    harness.apply()
     pages = {
-        403: harness.agent.post("/certificate", data={"holder": "Ada"}),
+        403: harness.apply(),
         405: harness.agent.delete("/"),
         422: harness.agent.post("/verify", data={"certificate": "x" * 100_000}),
     }
@@ -640,28 +738,22 @@ def test_refused_requests_show_an_error_page_with_their_status(harness: Harness)
         assert "Something went wrong" in page.text and str(status) in page.text
 
 
-def test_crash_shows_an_error_page(harness: Harness) -> None:
-    harness.judge.error = RuntimeError("boom")
-    harness.agent = harness.browser(raise_server_exceptions=False)
-    harness.agent.get("/")
-
-    page = harness.submit("Dear Mira ...")
-
-    assert page.status_code == 500
-    assert "Something went wrong" in page.text and "boom" not in page.text
-
-
 def test_admin_errors_stay_json(harness: Harness) -> None:
     assert harness.admin.get("/nope").json() == {"detail": "Not Found"}
 
 
 def test_pages_show_texts_not_python_objects(harness: Harness) -> None:
-    harness.agent.get("/")
-    harness.submit("Dear Mira ...")
+    harness.judge.verdict = Verdict(score=0.1, passed=False)
+    harness.open_widget()
+    rejected = harness.submit("no")
+    harness.clock.now += COOLDOWN_S
+    harness.judge.verdict = Verdict(score=0.9, passed=True)
     pages = [
         harness.agent.get("/"),
+        rejected,
+        harness.apply("Ada", token="made-up"),
+        harness.apply(),
         harness.agent.get("/certificate"),
-        harness.agent.post("/certificate", data={"holder": "Ada"}),
         harness.agent.get("/verify"),
         harness.agent.post("/verify", data={"certificate": "Ada"}),
         harness.agent.get("/privacy"),

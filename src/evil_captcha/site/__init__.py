@@ -3,17 +3,16 @@
 ``build_site`` returns two apps sharing one ledger:
 
 - ``public``: the page agents and humans see (served as https://evil-captcha.org).
-  It is an application form for a certificate of humanity: a name and the captcha.
-  Answers go to ``/`` with the form's name, which comes back filled in but is never kept.
-  A session cookie binds task and verification to one browser.
+  It serves the captcha that any site can embed (see ``captcha``), and uses it itself:
+  the start page is an application form for a certificate of humanity, a name and the
+  captcha's snippet. The form posts the name and the pass token to ``/certificate`` for
+  the certificate: a PGP-clearsigned statement naming them. A session cookie binds the
+  certificate to one browser, which ``/certificate`` keeps showing for the rest of the
+  session; one browser earns one certificate.
   Test runs group sessions by client IP, so the URL carries no test markers.
   Every visitor's activity is logged anonymously as JSON lines (see ``ledger``).
-  Passing unlocks the form's submit button, which posts the name to ``/certificate`` for
-  the certificate: a PGP-clearsigned statement naming them. One pass earns one
-  certificate, which ``/certificate`` keeps showing for the rest of the session.
   ``/verify`` checks a pasted certificate against the site's key, without session or log;
   ``/pubkey.asc`` is that key, for checking with gpg.
-  Answers from one client IP must be ``COOLDOWN_S`` apart, so the judge cannot be brute-forced.
   ``/favicon.svg`` is the devil from the captcha box.
   ``/privacy`` is the privacy notice, naming the operator's ``privacy_contact``.
   Errors, from an unknown page to a crash, show an error page leading back to the form.
@@ -27,7 +26,6 @@ import random
 import re
 import time
 import tomllib
-from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -43,14 +41,14 @@ from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from evil_captcha.certificate import InvalidCertificate, Notary
-from evil_captcha.judge import Judge, JudgeError
+from evil_captcha.judge import Judge
+from evil_captcha.site.captcha import COOLDOWN_S, RESPONSE_FIELD, build_captcha
 from evil_captcha.site.ledger import (
     ACTIVITY_RETENTION_DAYS,
+    PASS_TTL_S,
     SESSION_TTL_S,
-    Challenge,
     Ledger,
     Session,
-    new_challenge_id,
 )
 from evil_captcha.tasks import TaskCatalog
 
@@ -77,8 +75,6 @@ class Registration(BaseModel):
 
 HOLDER_MAX_LENGTH = 80
 CERTIFICATE_MAX_LENGTH = 4096  # a certificate is about 600 characters
-ANSWER_MAX_LENGTH = 280  # a tweet; also caps what each judged answer costs
-COOLDOWN_S = 5.0
 SESSION_COOKIE = "session"
 
 
@@ -96,7 +92,6 @@ def build_site(
     (e.g. Cloudflare's ``CF-Connecting-IP``); without it, the connection's address is used."""
     rng = rng or random.SystemRandom()
     ledger = Ledger(clock)
-    last_answer: OrderedDict[str, float] = OrderedDict()  # client IP -> time, oldest first
     texts = tomllib.loads((HERE / "locales" / f"{lang}.toml").read_text())
     templates = Environment(
         loader=FileSystemLoader(HERE / "templates"),
@@ -120,58 +115,36 @@ def build_site(
             "retention_days": ACTIVITY_RETENTION_DAYS,
             "session_ttl_minutes": round(SESSION_TTL_S / 60),
             "cooldown_s": round(COOLDOWN_S),
+            "pass_ttl_minutes": round(PASS_TTL_S / 60),
         },
     )
-
-    def issue_challenge(session: Session) -> Challenge:
-        previous = session.challenge.task if session.challenge else None
-        template_id = session.run.template_id if session.run else None
-        task = catalog.draw(rng, template_id, unlike=previous)
-        challenge = Challenge(new_challenge_id(), task)
-        session.challenge = challenge
-        session.record(
-            "challenge",
-            challenge_id=challenge.id,
-            template_id=challenge.task.template_id,
-            task=challenge.task.text,
-        )
-        return challenge
 
     def render(
         session: Session, holder: str = "", notice: str | None = None, status: int = 200
     ) -> HTMLResponse:
-        context: dict[str, Any] = {
+        context = {
             "t": texts,
             "lang": lang,
-            "passed": session.passed,
             "holder": holder,
             "holder_max_length": HOLDER_MAX_LENGTH,
-            "answer_max_length": ANSWER_MAX_LENGTH,
+            "notice": texts[notice] if notice else None,
         }
-        if not session.passed:
-            challenge = session.challenge or issue_challenge(session)
-            message = texts[notice] if notice else None
-            if isinstance(message, list):  # a notice with variants shows a random one
-                message = rng.choice(cast(list[str], message))
-            context |= {
-                "task": challenge.task.text,
-                "challenge_id": challenge.id,
-                "notice": message,
-            }
-        response = HTMLResponse(page.render(context), status_code=status)
-        # No expiry: the browser drops the cookie, and with it the verification, when it closes.
-        response.set_cookie(
-            SESSION_COOKIE, session.token, httponly=True, secure=True, samesite="lax"
-        )
-        return response
+        return remember(session, HTMLResponse(page.render(context), status_code=status))
 
-    def render_certificate(certificate: str) -> HTMLResponse:
+    def render_certificate(session: Session, certificate: str) -> HTMLResponse:
         context = {
             "t": texts,
             "lang": lang,
             "certificate": certificate,
         }
-        return HTMLResponse(certificate_page.render(context))
+        return remember(session, HTMLResponse(certificate_page.render(context)))
+
+    def remember(session: Session, response: HTMLResponse) -> HTMLResponse:
+        # No expiry: the browser drops the cookie, and with it the certificate, when it closes.
+        response.set_cookie(
+            SESSION_COOKIE, session.token, httponly=True, secure=True, samesite="lax"
+        )
+        return response
 
     def render_verification(
         certificate: str = "", statement: str | None = None, status: int = 200
@@ -211,6 +184,18 @@ def build_site(
         return HTMLResponse(error_page.render(context), status_code=status)
 
     public = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    captcha = build_captcha(
+        catalog=catalog,
+        judge=judge,
+        ledger=ledger,
+        templates=templates,
+        texts=texts,
+        lang=lang,
+        rng=rng,
+        clock=clock,
+        client_ip=client_ip,
+    )
+    public.include_router(captcha.router)
 
     @public.exception_handler(StarletteHTTPException)
     def refused(request: Request, error: StarletteHTTPException) -> HTMLResponse:
@@ -236,72 +221,19 @@ def build_site(
                 return RedirectResponse("/certificate", status_code=303)
             return render(session)
 
-    @public.post("/", response_class=HTMLResponse)
-    def submit(
-        request: Request,
-        challenge_id: Annotated[str, Form()],
-        answer: Annotated[str, Form()] = "",
-        holder: Annotated[str, Form(max_length=HOLDER_MAX_LENGTH)] = "",
-    ) -> HTMLResponse:
-        ip = client_ip(request)
-        answer = answer.replace("\r\n", "\n")  # browsers count a line break as one character
-        with ledger.lock:
-            session = visitor(request, ip)
-            challenge = session.challenge
-            if session.passed or challenge is None or challenge.id != challenge_id:
-                session.record("stale_submission", challenge_id=challenge_id)
-                return render(session, holder, notice="stale", status=409)
-            # Enter in the name field submits the form here without an answer: not an attempt.
-            if not answer.strip():
-                return render(session, holder)
-            if len(answer) > ANSWER_MAX_LENGTH:
-                session.record("too_long", challenge_id=challenge_id, length=len(answer))
-                return render(session, holder, notice="too_long", status=422)
-            now = clock()
-            while last_answer and now - next(iter(last_answer.values())) >= COOLDOWN_S:
-                last_answer.popitem(last=False)
-            if ip in last_answer:
-                session.record("cooldown", challenge_id=challenge_id)
-                return render(session, holder, notice="cooldown", status=429)
-            last_answer[ip] = now
-        # Judge outside the lock: it is a slow network call.
-        try:
-            verdict = judge.judge(challenge.task, answer)
-        except JudgeError:
-            log.exception("judge failed for session %s", session.id)
-            with ledger.lock:
-                session.record("judge_error", challenge_id=challenge.id)
-                return render(session, holder, notice="judge_unavailable", status=503)
-        with ledger.lock:
-            session.record(
-                "submission",
-                challenge_id=challenge.id,
-                template_id=challenge.task.template_id,
-                task=challenge.task.text,
-                answer=answer,
-                score=verdict.score,
-                passed=verdict.passed,
-            )
-            if session.challenge is not challenge:
-                return render(session, holder, notice="stale", status=409)
-            if verdict.passed:
-                session.passed = True
-                return render(session, holder)
-            issue_challenge(session)
-            return render(session, holder, notice="rejected")
-
     @public.get("/certificate", response_class=HTMLResponse, response_model=None)
     def congratulate(request: Request) -> HTMLResponse | RedirectResponse:
         with ledger.lock:
             session = visitor(request)
             if not session.certificate:
                 return RedirectResponse("/", status_code=303)
-            return render_certificate(session.certificate)
+            return render_certificate(session, session.certificate)
 
     @public.post("/certificate", response_class=HTMLResponse)
     def certify(
         request: Request,
         holder: Annotated[str, Form(min_length=1, max_length=HOLDER_MAX_LENGTH)],
+        token: Annotated[str, Form(alias=RESPONSE_FIELD)] = "",
     ) -> HTMLResponse:
         name = " ".join(holder.split())  # one line, so it cannot fake a second statement
         if not name:
@@ -310,14 +242,17 @@ def build_site(
         statement = texts["statement"].format(holder=name, time=issued)
         with ledger.lock:
             session = visitor(request)
-            if not session.passed or session.certificate:
+            if session.certificate:
                 session.record("certificate_refused")
-                raise HTTPException(403, "no certificate earned, or already issued")
+                raise HTTPException(403, "this browser already has its certificate")
+            if not captcha.redeem(token):
+                session.record("certificate_refused")
+                return render(session, holder, notice="captcha_required", status=422)
             if session.run:
                 session.run.certificates.append(statement)
             session.certificate = notary.certify(statement)
             session.record("certificate_issued")
-            return render_certificate(session.certificate)
+            return render_certificate(session, session.certificate)
 
     @public.get("/verify", response_class=HTMLResponse)
     def verification() -> HTMLResponse:

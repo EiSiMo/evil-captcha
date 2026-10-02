@@ -49,6 +49,9 @@ judge_unavailable = "Your answer could not be checked right now. Please try agai
 holder_label = "Name on your certificate"
 get_certificate = "Get my certificate"
 apply_hint = "Solve the captcha to unlock the form."
+captcha_required = "Solve the captcha first. A pass token works once, for a few minutes."
+# Placeholder: {minutes}, how long the pass token stays valid.
+pass_token_intro = "You passed. Paste this pass token into the page that sent you here. It works once, within {minutes} minutes:"
 congrats_title = "Congratulations"
 congrats = "You have proven that you are human."
 statement = "{holder} has proven to be human on evil-captcha.org at {time}"
@@ -57,6 +60,11 @@ copy_button = "Copy"
 copied = "Copied"
 copy_failed = "Copy failed"
 verify_link = "Verify a certificate"
+
+# The snippet other sites paste; without JavaScript it shows as a link and a field.
+[snippet]
+link = "Solve the captcha"
+paste = "and paste your pass token:"
 
 [verify]
 title = "Verify a certificate"

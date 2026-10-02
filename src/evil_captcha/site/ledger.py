@@ -131,7 +131,7 @@ class Ledger:
         self._max_passes = max_passes
         # pass token -> (session, issue time), oldest first
         self._passes: OrderedDict[str, tuple[Session, float]] = OrderedDict()
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()  # reentrant: redeeming a pass token nests in callers
 
     def register(self, client_ip: str, template_id: str | None = None) -> Run:
         """Start a fresh test run for sessions from this IP."""
