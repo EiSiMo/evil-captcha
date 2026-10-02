@@ -708,22 +708,35 @@ def test_privacy_notice_names_the_contact_and_the_retention(harness: Harness) ->
     assert harness.report()["events"] == []
 
 
-def test_every_page_links_github_docs_and_privacy_below_its_card(harness: Harness) -> None:
+GITHUB = "https://github.com/EiSiMo/evil-captcha"
+NAVIGATION = ["/", "/verify", "/docs", GITHUB, "/privacy"]
+
+
+def test_every_page_shows_the_navigation_below_its_card_and_marks_itself(
+    harness: Harness,
+) -> None:
     pages = [
-        harness.agent.get("/"),
-        harness.apply(),
-        harness.agent.get("/verify"),
-        harness.agent.get("/privacy"),
-        harness.agent.get("/docs"),
-        harness.agent.get("/nope"),
-        harness.open_widget(),
+        ("/", harness.agent.get("/")),
+        ("/", harness.apply()),  # the certificate belongs to the start page
+        ("/verify", harness.agent.get("/verify")),
+        ("/docs", harness.agent.get("/docs")),
+        ("/privacy", harness.agent.get("/privacy")),
+        (None, harness.agent.get("/nope")),
+        (None, harness.open_widget()),
     ]
 
-    for page in pages:
-        links = page.text.split("</main>")[1]
-        assert 'href="https://github.com/EiSiMo/evil-captcha"' in links
-        assert 'href="/docs"' in links
-        assert 'href="/privacy"' in links
+    for current, page in pages:
+        navigation = page.text.split("</main>")[1]
+        links = re.findall(r'href="([^"]+)"', navigation)
+        assert links == [target for target in NAVIGATION if target != current]
+        assert navigation.count('aria-current="page"') == (1 if current else 0)
+
+
+def test_widget_links_github_and_privacy(harness: Harness) -> None:
+    page = harness.open_widget()
+
+    for target in [GITHUB, "/privacy"]:
+        assert f'href="{target}" target="_blank"' in page.text
 
 
 def test_docs_show_the_snippet_our_own_form_uses_and_how_to_check_it(harness: Harness) -> None:

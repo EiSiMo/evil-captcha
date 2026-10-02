@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% set active_page = "/verify" %}
 {% block title %}{{ t.verify.title }}{% endblock %}
 {% block style %}
   <style>
@@ -6,6 +7,8 @@
     .result { margin: 0 0 24px; padding: 12px 14px; border-radius: 8px; border: 1px solid; }
     .result strong { display: block; margin-bottom: 2px; }
     .result.valid { background: #e6f4ea; border-color: #a8dab5; color: #0d652d; }
+    .card > .public-key { margin: 16px 0 0; font-size: .85rem; text-align: center; }
+    .public-key a { color: #555; }
     .result.invalid { background: #fce8e6; border-color: #f4b6b0; color: #a50e0e; }
   </style>
 {% endblock %}
@@ -25,6 +28,6 @@
       </div>
       <button class="button" type="submit">{{ t.verify.submit }}</button>
     </form>
+    <p class="public-key"><a href="/pubkey.asc">{{ t.verify.public_key }}</a></p>
   </main>
 {% endblock %}
-{% block footer_link %}<a href="/pubkey.asc">{{ t.verify.public_key }}</a>{% endblock %}

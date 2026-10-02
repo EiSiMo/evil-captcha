@@ -8,7 +8,6 @@ submit = "Verify"
 captcha_label = "Human verification"
 captcha_checkbox = "I'm not a chatbot"
 captcha_brand = "evilCAPTCHA v1"
-github_link = "GitHub"
 content_warning_title = "Content warning"
 content_warning = "This CAPTCHA asks for nearly **anything** people can be triggered by. Are you sure you can handle that?"
 content_warning_help = "Need help?"
@@ -59,7 +58,15 @@ certificate_intro = "Your certificate of humanity"
 copy_button = "Copy"
 copied = "Copied"
 copy_failed = "Copy failed"
-verify_link = "Verify a certificate"
+
+# The navigation below every page.
+[nav]
+label = "Site"
+home = "Home"
+verify = "Verify"
+docs = "For websites"
+github = "GitHub"
+privacy = "Privacy"
 
 # The snippet other sites paste; without JavaScript it shows as a link and a field.
 [snippet]
@@ -68,7 +75,6 @@ paste = "and paste your pass token:"
 
 # Placeholders in notes: {pass_ttl_minutes}, {cooldown_s}.
 [docs]
-link = "Use it on your site"
 title = "Use evilCAPTCHA on your site"
 intro = "Keep chatbots out of your forms. No sign-up, no keys: two steps and you are done."
 snippet_heading = "1. Add the snippet to your form"
@@ -97,7 +103,6 @@ public_key = "Public key"
 
 # Placeholders: {retention_days}, {session_ttl_minutes}, {cooldown_s}, {pass_ttl_minutes}.
 [privacy]
-link = "Privacy"
 title = "Privacy"
 intro = "evil-captcha is an art project. It collects as little as it can and never stores who you are."
 contact_heading = "Who is responsible"

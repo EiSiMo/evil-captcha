@@ -8,9 +8,10 @@
   <title>{% block title %}{% endblock %}</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }
-    /* The link row sits below the page's card. */
+    /* The navigation sits below the page's card and marks the page you are on. */
     footer { margin-top: 16px; font-size: .8rem; color: #777; text-align: center; }
     footer a { color: #555; }
+    footer [aria-current] { font-weight: 600; color: #222; }
     /* Pages are cards in the style of a modern web form. */
     .card {
       box-sizing: border-box; max-width: 32rem; margin: 0 auto; padding: 32px;
@@ -39,10 +40,21 @@
 <body>
   {% block body %}{% endblock %}
   <footer>
-    <a href="https://github.com/EiSiMo/evil-captcha">{{ t.github_link }}</a> ·
-    {% block footer_link %}<a href="/verify">{{ t.verify_link }}</a>{% endblock %} ·
-    <a href="/docs">{{ t.docs.link }}</a> ·
-    <a href="/privacy">{{ t.privacy.link }}</a>
+    {# Child templates name their entry with a top-level ``{% set active_page = "/docs" %}``. #}
+    {% set active_page = active_page | default(none) %}
+    <nav aria-label="{{ t.nav.label }}">
+      {% for href, label in [
+        ("/", t.nav.home),
+        ("/verify", t.nav.verify),
+        ("/docs", t.nav.docs),
+        ("https://github.com/EiSiMo/evil-captcha", t.nav.github),
+        ("/privacy", t.nav.privacy),
+      ] %}
+        {%- if href == active_page %}<span aria-current="page">{{ label }}</span>
+        {%- else %}<a href="{{ href }}">{{ label }}</a>{% endif %}
+        {%- if not loop.last %} · {% endif %}
+      {% endfor %}
+    </nav>
   </footer>
   {% block script %}{% endblock %}
 </body>
