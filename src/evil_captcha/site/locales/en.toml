@@ -66,6 +66,24 @@ verify_link = "Verify a certificate"
 link = "Solve the captcha"
 paste = "and paste your pass token:"
 
+# Placeholders in notes: {pass_ttl_minutes}, {cooldown_s}.
+[docs]
+link = "Use it on your site"
+title = "Use evilCAPTCHA on your site"
+intro = "Keep chatbots out of your forms. No sign-up, no keys: two steps and you are done."
+snippet_heading = "1. Add the snippet to your form"
+snippet = "Paste it inside your **<form>**, where the captcha should appear. Once solved, your form sends a pass token in the field **evil-captcha-response**."
+check_heading = "2. Check the pass token on your server"
+check = "Before you accept the form, send the pass token to us. Accept it only if the answer is **\"success\": true**."
+notes_heading = "Good to know"
+notes = [
+  "A pass token works once and expires after {pass_ttl_minutes} minutes.",
+  "Each visitor can answer once every {cooldown_s} seconds, across all sites that use the captcha.",
+  "Without JavaScript the snippet is a link and a field, so agents and text browsers can still try.",
+  "When the captcha is solved, the snippet fires the event **evil-captcha:pass** in your page.",
+  "The captcha asks for nasty things and warns about that first. Your visitors should know what they are getting into.",
+]
+
 [verify]
 title = "Verify a certificate"
 intro = "Check whether a certificate of humanity was really issued by evil-captcha.org."
@@ -76,7 +94,7 @@ invalid = "Not a valid certificate"
 invalid_hint = "It was not issued by evil-captcha.org, or it was changed afterwards."
 public_key = "Public key"
 
-# Placeholders: {retention_days}, {session_ttl_minutes}, {cooldown_s}.
+# Placeholders: {retention_days}, {session_ttl_minutes}, {cooldown_s}, {pass_ttl_minutes}.
 [privacy]
 link = "Privacy"
 title = "Privacy"
@@ -92,9 +110,16 @@ paragraphs = [
 ]
 
 [[privacy.sections]]
+heading = "The captcha on other websites"
+paragraphs = [
+  "Other websites can embed the captcha. There, too, your answers go straight to us, never to that website, and everything on this page applies.",
+  "Passing gives you a random pass token, which the website checks with us once. It says only that someone passed, not who. We keep it in memory for at most {pass_ttl_minutes} minutes and never write it to disk.",
+]
+
+[[privacy.sections]]
 heading = "Your name on the certificate"
 paragraphs = [
-  "The name you enter is only used to create your certificate and show it to you. It is sent along with every answer so the form keeps it, but it is not stored until the certificate is created. The certificate stays in our server's memory, so you can open it again, until your session is forgotten after {session_ttl_minutes} minutes without activity. It is never written to disk or logged.",
+  "The name you enter is only used to create your certificate and show it to you. It never reaches the captcha and is not stored until the certificate is created. The certificate stays in our server's memory, so you can open it again, until your session is forgotten after {session_ttl_minutes} minutes without activity. It is never written to disk or logged.",
 ]
 
 [[privacy.sections]]
@@ -106,14 +131,14 @@ paragraphs = [
 [[privacy.sections]]
 heading = "Your IP address"
 paragraphs = [
-  "Our server needs your IP address to answer your browser and to allow only one answer every {cooldown_s} seconds. It is kept in memory only for that and never written to disk.",
+  "Our server needs your IP address to answer your browser and to allow only one answer every {cooldown_s} seconds, on all websites that use the captcha. It is kept in memory only for that and never written to disk.",
   "The site is delivered through Cloudflare, Inc. (USA), which also processes your IP address and request data to deliver the site and protect it from attacks.",
 ]
 
 [[privacy.sections]]
 heading = "Cookie"
 paragraphs = [
-  "A single cookie holds a random session ID, so the site knows which task is yours and whether you passed. It is strictly necessary, deleted when you close your browser and forgotten by our server after {session_ttl_minutes} minutes without activity. There is no tracking and no analytics.",
+  "The captcha itself sets no cookie. Only the certificate form on evil-captcha.org sets a single cookie holding a random session ID, so the site can show you your certificate again. It is strictly necessary, deleted when you close your browser and forgotten by our server after {session_ttl_minutes} minutes without activity. There is no tracking and no analytics.",
 ]
 
 [[privacy.sections]]

@@ -689,12 +689,13 @@ def test_privacy_notice_names_the_contact_and_the_retention(harness: Harness) ->
     assert harness.report()["events"] == []
 
 
-def test_every_page_links_github_and_privacy_below_its_card(harness: Harness) -> None:
+def test_every_page_links_github_docs_and_privacy_below_its_card(harness: Harness) -> None:
     pages = [
         harness.agent.get("/"),
         harness.apply(),
         harness.agent.get("/verify"),
         harness.agent.get("/privacy"),
+        harness.agent.get("/docs"),
         harness.agent.get("/nope"),
         harness.open_widget(),
     ]
@@ -702,7 +703,23 @@ def test_every_page_links_github_and_privacy_below_its_card(harness: Harness) ->
     for page in pages:
         links = page.text.split("</main>")[1]
         assert 'href="https://github.com/EiSiMo/evil-captcha"' in links
+        assert 'href="/docs"' in links
         assert 'href="/privacy"' in links
+
+
+def test_docs_show_the_snippet_our_own_form_uses_and_how_to_check_it(harness: Harness) -> None:
+    form = harness.agent.get("/").text
+    snippet = form[form.index('<div class="evil-captcha">') : form.index("</script>") + 9]
+    public = snippet.replace('"/widget"', '"https://evil-captcha.org/widget"').replace(
+        '"/embed.js"', '"https://evil-captcha.org/embed.js"'
+    )
+
+    docs = harness.browser().get("/docs")
+
+    assert docs.status_code == 200
+    assert public in html.unescape(docs.text)
+    assert "https://evil-captcha.org/siteverify" in docs.text
+    assert "set-cookie" not in docs.headers
 
 
 def test_captcha_page_is_titled_and_shows_the_devil_as_favicon(harness: Harness) -> None:

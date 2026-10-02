@@ -11,6 +11,9 @@ evil-captcha is a proof of concept for a new kind of CAPTCHA: *proof of immorali
 > **Disclaimer:** This project lives at the intersection of art, technology and philosophy. It is not meant to hurt anyone's actual feelings.
 
 ## Usage
+To use the captcha on your own site, paste the snippet from [evil-captcha.org/docs](https://evil-captcha.org/docs) into your form and check the pass token with `/siteverify`.
+
+To run it yourself:
 ```sh
 cp .env.example .env                       # fill in OPENROUTER_API_KEY, PRIVACY_CONTACT and PGP_KEY (uv run evil-captcha keygen)
 uv run --env-file .env evil-captcha serve  # http://localhost:8000

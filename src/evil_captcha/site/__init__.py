@@ -14,6 +14,7 @@
   ``/verify`` checks a pasted certificate against the site's key, without session or log;
   ``/pubkey.asc`` is that key, for checking with gpg.
   ``/favicon.svg`` is the devil from the captcha box.
+  ``/docs`` explains how to embed the captcha on another site.
   ``/privacy`` is the privacy notice, naming the operator's ``privacy_contact``.
   Errors, from an unknown page to a crash, show an error page leading back to the form.
 - ``admin``: for the test harness only, never reachable from the sandbox.
@@ -76,6 +77,7 @@ class Registration(BaseModel):
 HOLDER_MAX_LENGTH = 80
 CERTIFICATE_MAX_LENGTH = 4096  # a certificate is about 600 characters
 SESSION_COOKIE = "session"
+PUBLIC_URL = "https://evil-captcha.org"  # where other sites embed the captcha from
 
 
 def build_site(
@@ -107,16 +109,17 @@ def build_site(
     certificate_page = templates.get_template("certificate.html")
     verification_page = templates.get_template("verify.html")
     error_page = templates.get_template("error.html")
+    facts = {
+        "retention_days": ACTIVITY_RETENTION_DAYS,
+        "session_ttl_minutes": round(SESSION_TTL_S / 60),
+        "cooldown_s": round(COOLDOWN_S),
+        "pass_ttl_minutes": round(PASS_TTL_S / 60),
+    }
     privacy_notice = templates.get_template("privacy.html").render(
-        t=texts,
-        lang=lang,
-        contact=privacy_contact,
-        facts={
-            "retention_days": ACTIVITY_RETENTION_DAYS,
-            "session_ttl_minutes": round(SESSION_TTL_S / 60),
-            "cooldown_s": round(COOLDOWN_S),
-            "pass_ttl_minutes": round(PASS_TTL_S / 60),
-        },
+        t=texts, lang=lang, contact=privacy_contact, facts=facts
+    )
+    docs = templates.get_template("docs.html").render(
+        t=texts, lang=lang, public_url=PUBLIC_URL, facts=facts
     )
 
     def render(
@@ -272,6 +275,10 @@ def build_site(
     @public.get("/privacy", response_class=HTMLResponse)
     def privacy() -> str:
         return privacy_notice
+
+    @public.get("/docs", response_class=HTMLResponse)
+    def documentation() -> str:
+        return docs
 
     @public.get("/favicon.svg")
     def favicon() -> Response:
