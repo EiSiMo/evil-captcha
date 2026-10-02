@@ -83,7 +83,7 @@ title = "About evilCAPTCHA"
 description = "Why evilCAPTCHA asks for immoral tasks, how it judges the answers, and why AI agents with guardrails cannot pass it."
 intro = "A new kind of {captcha} that reliably keeps modern AI agents out of your forms, your sign-ups and your data."
 captcha_spelled_out = "Completely Automated Public Turing test to tell Computers and Humans Apart"
-try_it = "Try it"
+try_it = "Try it now"
 
 [[about.sections]]
 heading = "Why?"
