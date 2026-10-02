@@ -114,3 +114,12 @@ paragraphs = [
   "We process this data based on our legitimate interest in running the site and protecting it from abuse (Art. 6(1)(f) GDPR).",
   "You have the right to access, rectification, erasure, restriction of processing and objection, and you may complain to a data protection supervisory authority. As the log cannot be linked to you, we can usually not find your entries in it.",
 ]
+
+# Placeholder in status: {status}, the HTTP status code.
+[error]
+status = "Error {status}"
+not_found_title = "Page not found"
+not_found = "This page does not exist. Maybe a chatbot made it up."
+title = "Something went wrong"
+message = "That did not work. Please go back and try again."
+home = "Back to the start"

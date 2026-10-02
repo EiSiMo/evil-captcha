@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block meta %}<meta name="robots" content="noindex">{% endblock %}
+{% block title %}{{ title }}{% endblock %}
+{% block style %}
+  <style>
+    .error { text-align: center; }
+    .error svg { display: block; width: 72px; height: 72px; margin: 0 auto 16px; }
+    .error .status {
+      margin: 0 0 8px; font-size: .8rem; font-weight: 600; letter-spacing: .12em;
+      color: #d7262f; font-variant-numeric: tabular-nums;
+    }
+    .error .button { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+  </style>
+{% endblock %}
+{% block body %}
+  <main class="card error">
+    {% include "devil.svg" %}
+    <p class="status">{{ t.error.status.format(status=status) }}</p>
+    <h1>{{ title }}</h1>
+    <p>{{ message }}</p>
+    <a class="button" href="/">{{ t.error.home }}</a>
+  </main>
+{% endblock %}

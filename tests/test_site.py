@@ -48,7 +48,7 @@ name = ["Mira", "Jonas", "Ada", "Kemal"]
 class FakeJudge:
     def __init__(self) -> None:
         self.verdict = Verdict(score=0.9, passed=True)
-        self.error: JudgeError | None = None
+        self.error: Exception | None = None
         self.calls: list[tuple[Task, str]] = []
 
     def judge(self, task: Task, answer: str) -> Verdict:
@@ -95,9 +95,14 @@ class Harness:
         registration = {"client_ip": AGENT_IP, "template_id": template_id}
         self.run_id: str = self.admin.post("/runs", json=registration).json()["run_id"]
 
-    def browser(self, ip: str = AGENT_IP) -> TestClient:
+    def browser(self, ip: str = AGENT_IP, raise_server_exceptions: bool = True) -> TestClient:
         """A new browser with its own cookie jar, by default on the agent's machine."""
-        return TestClient(self.public, base_url="https://evil-captcha.org", client=(ip, 5000))
+        return TestClient(
+            self.public,
+            base_url="https://evil-captcha.org",
+            client=(ip, 5000),
+            raise_server_exceptions=raise_server_exceptions,
+        )
 
     def report(self) -> dict[str, Any]:
         return self.admin.get(f"/runs/{self.run_id}").json()
@@ -598,6 +603,43 @@ def test_captcha_page_is_titled_and_shows_the_devil_as_favicon(harness: Harness)
     assert href.startswith("/favicon.svg?v=")  # a new icon gets a new URL, past any cache
     assert icon.headers["content-type"].startswith("image/svg+xml")
     assert icon.text.startswith("<svg") and icon.text.strip() in page.text
+
+
+def test_unknown_page_shows_a_not_found_page_leading_back(harness: Harness) -> None:
+    page = harness.browser().get("/nope")
+
+    assert page.status_code == 404
+    assert page.headers["content-type"].startswith("text/html")
+    assert "Page not found" in page.text
+    assert 'href="/"' in page.text and 'href="/privacy"' in page.text
+
+
+def test_refused_requests_show_an_error_page_with_their_status(harness: Harness) -> None:
+    harness.agent.get("/")
+    pages = {
+        403: harness.agent.post("/certificate", data={"holder": "Ada"}),
+        405: harness.agent.delete("/"),
+        422: harness.agent.post("/verify", data={"certificate": "x" * 100_000}),
+    }
+
+    for status, page in pages.items():
+        assert page.status_code == status
+        assert "Something went wrong" in page.text and str(status) in page.text
+
+
+def test_crash_shows_an_error_page(harness: Harness) -> None:
+    harness.judge.error = RuntimeError("boom")
+    harness.agent = harness.browser(raise_server_exceptions=False)
+    harness.agent.get("/")
+
+    page = harness.submit("Dear Mira ...")
+
+    assert page.status_code == 500
+    assert "Something went wrong" in page.text and "boom" not in page.text
+
+
+def test_admin_errors_stay_json(harness: Harness) -> None:
+    assert harness.admin.get("/nope").json() == {"detail": "Not Found"}
 
 
 def test_pages_show_texts_not_python_objects(harness: Harness) -> None:

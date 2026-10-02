@@ -16,6 +16,7 @@
   Answers from one client IP must be ``COOLDOWN_S`` apart, so the judge cannot be brute-forced.
   ``/favicon.svg`` is the devil from the captcha box.
   ``/privacy`` is the privacy notice, naming the operator's ``privacy_contact``.
+  Errors, from an unknown page to a crash, show an error page leading back to the form.
 - ``admin``: for the test harness only, never reachable from the sandbox.
   ``POST /runs`` registers a client IP as a new run, ``GET /runs/{id}`` reports it.
 """
@@ -34,10 +35,12 @@ from pathlib import Path
 from typing import Annotated, Any, cast
 
 from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 from markupsafe import Markup, escape
 from pydantic import BaseModel
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from evil_captcha.certificate import InvalidCertificate, Notary
 from evil_captcha.judge import Judge, JudgeError
@@ -108,6 +111,7 @@ def build_site(
     page = templates.get_template("page.html")
     certificate_page = templates.get_template("certificate.html")
     verification_page = templates.get_template("verify.html")
+    error_page = templates.get_template("error.html")
     privacy_notice = templates.get_template("privacy.html").render(
         t=texts,
         lang=lang,
@@ -194,7 +198,34 @@ def build_site(
     def visitor(request: Request, ip: str | None = None) -> Session:
         return ledger.session(request.cookies.get(SESSION_COOKIE), ip or client_ip(request))
 
+    def render_error(status: int) -> HTMLResponse:
+        errors = texts["error"]
+        not_found = status == 404
+        context = {
+            "t": texts,
+            "lang": lang,
+            "status": status,
+            "title": errors["not_found_title" if not_found else "title"],
+            "message": errors["not_found" if not_found else "message"],
+        }
+        return HTMLResponse(error_page.render(context), status_code=status)
+
     public = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+    @public.exception_handler(StarletteHTTPException)
+    def refused(request: Request, error: StarletteHTTPException) -> HTMLResponse:
+        response = render_error(error.status_code)
+        response.headers.update(error.headers or {})  # e.g. Allow on 405
+        return response
+
+    @public.exception_handler(RequestValidationError)
+    def invalid(request: Request, error: RequestValidationError) -> HTMLResponse:
+        return render_error(422)
+
+    # Starlette still re-raises the crash after this, so it gets logged.
+    @public.exception_handler(Exception)
+    def crashed(request: Request, error: Exception) -> HTMLResponse:
+        return render_error(500)
 
     @public.get("/", response_class=HTMLResponse, response_model=None)
     def show(request: Request) -> HTMLResponse | RedirectResponse:
