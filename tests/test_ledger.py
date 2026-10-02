@@ -49,3 +49,35 @@ def test_only_registered_ips_collect_run_events() -> None:
 
     assert [e["type"] for e in run.events] == ["visit"]
     assert stranger.run is None
+
+
+def test_a_pass_token_redeems_its_session_once() -> None:
+    ledger = Ledger(FakeClock())
+    session = ledger.session(None, IP)
+    token = ledger.issue_pass(session)
+
+    assert ledger.redeem(token) is session
+    assert ledger.redeem(token) is None
+
+
+def test_unknown_pass_token_redeems_nothing() -> None:
+    assert Ledger(FakeClock()).redeem("made-up") is None
+
+
+def test_pass_token_expires() -> None:
+    clock = FakeClock()
+    ledger = Ledger(clock, pass_ttl_s=300)
+    token = ledger.issue_pass(ledger.session(None, IP))
+    clock.now += 301
+
+    assert ledger.redeem(token) is None
+
+
+def test_oldest_pass_token_is_dropped_beyond_the_limit() -> None:
+    ledger = Ledger(FakeClock(), max_passes=2)
+    session = ledger.session(None, IP)
+    oldest, recent = ledger.issue_pass(session), ledger.issue_pass(session)
+    ledger.issue_pass(session)
+
+    assert ledger.redeem(oldest) is None
+    assert ledger.redeem(recent) is session

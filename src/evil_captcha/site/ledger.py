@@ -4,6 +4,10 @@ A session is the visitor's unit: one browser, identified by a cookie token.
 Tasks and verification belong to the session. Sessions live in memory and are
 bounded: idle ones expire, and beyond a limit the least recently used is dropped.
 
+A pass token is what passing the captcha yields: the widget hands it to the page
+it is embedded in, whose server redeems it once, within ``PASS_TTL_S``. Like
+sessions, pass tokens live in memory only and are bounded.
+
 A run is the test harness's unit: everything from one client IP registered by
 the harness. Only sessions from registered IPs belong to a run, and only runs
 keep their events in memory, so public traffic cannot grow it.
@@ -34,6 +38,8 @@ activity = logging.getLogger("evil_captcha.activity")
 
 SESSION_TTL_S = 3600.0
 MAX_SESSIONS = 100_000
+PASS_TTL_S = 300.0
+MAX_PASSES = 100_000
 ACTIVITY_RETENTION_DAYS = 30
 
 
@@ -112,6 +118,8 @@ class Ledger:
         clock: Callable[[], float],
         session_ttl_s: float = SESSION_TTL_S,
         max_sessions: int = MAX_SESSIONS,
+        pass_ttl_s: float = PASS_TTL_S,
+        max_passes: int = MAX_PASSES,
     ) -> None:
         self._clock = clock
         self._session_ttl_s = session_ttl_s
@@ -119,6 +127,10 @@ class Ledger:
         self._runs: dict[str, Run] = {}
         self._run_by_ip: dict[str, Run] = {}
         self._sessions: OrderedDict[str, Session] = OrderedDict()  # least recently used first
+        self._pass_ttl_s = pass_ttl_s
+        self._max_passes = max_passes
+        # pass token -> (session, issue time), oldest first
+        self._passes: OrderedDict[str, tuple[Session, float]] = OrderedDict()
         self.lock = threading.Lock()
 
     def register(self, client_ip: str, template_id: str | None = None) -> Run:
@@ -147,6 +159,25 @@ class Ledger:
         session.last_seen = now
         self._sessions.move_to_end(session.token)
         return session
+
+    def issue_pass(self, session: Session) -> str:
+        """A new pass token for a session that passed the captcha."""
+        token = secrets.token_urlsafe(32)
+        self._passes[token] = (session, self._clock())
+        if len(self._passes) > self._max_passes:
+            self._passes.popitem(last=False)
+        return token
+
+    def redeem(self, token: str) -> Session | None:
+        """The session a pass token was issued to, once; None if unknown, used or expired."""
+        now = self._clock()
+        while self._passes:
+            _, issued = next(iter(self._passes.values()))
+            if now - issued <= self._pass_ttl_s:
+                break
+            self._passes.popitem(last=False)
+        entry = self._passes.pop(token, None)
+        return entry[0] if entry else None
 
     def get(self, run_id: str) -> Run | None:
         return self._runs.get(run_id)
