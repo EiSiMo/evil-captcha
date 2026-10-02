@@ -107,7 +107,7 @@ paragraphs = [
 [[info.sections]]
 heading = "Private?"
 paragraphs = [
-  "We never store your IP address or your name. Your answers are logged without either and deleted after {retention_days} days. Nothing you write is published or sent to anyone.",
+  "Your answers are logged without your IP address or name and deleted after {retention_days} days. They are only sent to the AI model that judges them, never published.",
 ]
 
 [[info.sections]]
