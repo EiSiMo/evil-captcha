@@ -27,7 +27,7 @@ import random
 import re
 import time
 import tomllib
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -78,6 +78,7 @@ HOLDER_MAX_LENGTH = 80
 CERTIFICATE_MAX_LENGTH = 4096  # a certificate is about 600 characters
 SESSION_COOKIE = "session"
 PUBLIC_URL = "https://evil-captcha.org"  # where other sites embed the captcha from
+FRAMEABLE_PATH = "/widget"  # the only page other sites may frame; all others refuse framing
 
 
 def build_site(
@@ -199,6 +200,16 @@ def build_site(
         client_ip=client_ip,
     )
     public.include_router(captcha.router)
+
+    @public.middleware("http")
+    async def refuse_framing(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        response = await call_next(request)
+        if request.url.path != FRAMEABLE_PATH:  # clickjacking: no other page may sit in a frame
+            response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+            response.headers["X-Frame-Options"] = "DENY"  # for browsers without CSP framing rules
+        return response
 
     @public.exception_handler(StarletteHTTPException)
     def refused(request: Request, error: StarletteHTTPException) -> HTMLResponse:

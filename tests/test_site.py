@@ -781,6 +781,24 @@ def test_pages_show_texts_not_python_objects(harness: Harness) -> None:
         assert "built-in method" not in page.text and "object at 0x" not in page.text
 
 
+# Framing: only the widget may be embedded by other sites.
+
+
+@pytest.mark.parametrize("path", ["/", "/docs", "/certificate", "/verify", "/privacy", "/nope"])
+def test_pages_refuse_to_be_framed(harness: Harness, path: str) -> None:
+    response = harness.agent.get(path)
+
+    assert response.headers["content-security-policy"] == "frame-ancestors 'none'"
+    assert response.headers["x-frame-options"] == "DENY"
+
+
+def test_widget_may_be_framed_by_any_site(harness: Harness) -> None:
+    response = harness.agent.get("/widget")
+
+    assert "content-security-policy" not in response.headers
+    assert "x-frame-options" not in response.headers
+
+
 # Which sites embed the captcha.
 
 
