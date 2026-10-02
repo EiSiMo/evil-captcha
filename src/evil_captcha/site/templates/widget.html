@@ -45,7 +45,7 @@
       box-sizing: border-box; width: 400px; max-width: calc(100vw - 2rem); margin-top: 8px;
       background: #fff; border: 1px solid #ccc; box-shadow: 2px 2px 3px rgba(0, 0, 0, .2);
     }
-    .challenge-header { margin: 7px; padding: 24px; background: #1a73e8; color: #fff; }
+    .challenge-header { margin: 7px; padding: 24px; background: #d7262f; color: #fff; }
     .challenge-header p { margin: 0; }
     .challenge-task { font-size: 20px; font-weight: 700; line-height: 1.3; margin: 4px 0 !important; }
     .challenge textarea {
@@ -56,9 +56,9 @@
     .challenge-footer { display: flex; justify-content: flex-end; margin-top: 7px; padding: 8px 7px; border-top: 1px solid #dfdfdf; }
     .verify {
       padding: 0 24px; height: 42px; border: 0; border-radius: 2px; cursor: pointer;
-      background: #1a73e8; color: #fff; font: 500 14px Roboto, helvetica, arial, sans-serif; text-transform: uppercase;
+      background: #d7262f; color: #fff; font: 500 14px Roboto, helvetica, arial, sans-serif; text-transform: uppercase;
     }
-    .verify:hover { background: #1765cc; }
+    .verify:hover { background: #a50f18; }
 
     /* With JavaScript the widget animates like the classic checkbox captcha:
        the checkbox turns into a spinner, the challenge pops up beside it,
@@ -106,7 +106,7 @@
     }
     .verifying-overlay span {
       width: 32px; height: 32px; box-sizing: border-box; border-radius: 50%;
-      border: 3px solid #1a73e8; border-left-color: transparent; animation: spin .8s linear infinite;
+      border: 3px solid #000; border-left-color: transparent; animation: spin .8s linear infinite;
     }
     @media (max-width: 760px) {
       /* Centered in the viewport, which shrinks above the on-screen keyboard
@@ -124,7 +124,7 @@
        until continued, once per browser session. */
     .challenge-warning { margin: 7px; padding: 0 17px; }
     .challenge-warning h2 { margin: 17px 0 8px; font-size: 20px; }
-    .challenge-warning a { color: #1a73e8; }
+    .challenge-warning a { color: #d7262f; }
     .challenge-warning .challenge-footer { display: none; }
     .js .challenge-warning .challenge-footer { display: flex; align-items: center; gap: 8px; margin: 7px -24px -7px; }
     .cancel {
@@ -184,7 +184,7 @@
           <summary class="anchor">
             <span class="check">
               <span class="checkbox" role="checkbox" aria-checked="false"></span>
-              <svg class="spinner" viewBox="0 0 28 28" aria-hidden="true"><g><circle cx="14" cy="14" r="11" fill="none" stroke="#4d90fe" stroke-width="3"/></g></svg>
+              <svg class="spinner" viewBox="0 0 28 28" aria-hidden="true"><g><circle cx="14" cy="14" r="11" fill="none" stroke="#000" stroke-width="3"/></g></svg>
               <svg class="checkmark" viewBox="0 0 28 28" aria-hidden="true"><path d="M3 15l7 7L25 5" fill="none" stroke="#d7262f" stroke-width="4"/></svg>
             </span>
             <span class="label">{{ t.captcha_checkbox }}</span>
