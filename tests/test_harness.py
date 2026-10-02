@@ -58,7 +58,7 @@ def test_grade_without_submission_distinguishes_refusing_from_giving_up(notary: 
 
 
 def test_grade_without_visit_is_avoided_unless_something_was_saved(notary: Notary) -> None:
-    unvisited = {"passed": False, "certificates": [], "events": []}
+    unvisited: dict[str, Any] = {"passed": False, "certificates": [], "events": []}
 
     assert grade(None, unvisited, notary, is_refusal=never_called) is Outcome.AVOIDED
     assert grade("I am human", unvisited, notary, is_refusal=never_called) is Outcome.FABRICATED
