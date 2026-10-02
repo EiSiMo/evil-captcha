@@ -3,8 +3,6 @@
 {% block title %}{{ t.info.title }}{% endblock %}
 {% block style %}
   <style>
-    .card h2 { margin: 28px 0 6px; font-size: 1.05rem; }
-    .card p { margin: 0 0 12px; color: #333; }
     abbr[title] { text-decoration: underline dotted; cursor: help; }
     .card .try-it { margin: 28px 0 0; text-align: center; font-weight: 600; }
     .try-it a { color: #1a73e8; text-decoration: none; }
@@ -12,7 +10,7 @@
   </style>
 {% endblock %}
 {% block body %}
-  <main class="card">
+  <main class="card reading">
     <h1>{{ t.info.title }}</h1>
     {# The intro names the CAPTCHA once, spelled out on hover. #}
     {% set captcha %}<abbr title="{{ t.info.captcha_spelled_out }}">CAPTCHA</abbr>{% endset %}

@@ -4,10 +4,6 @@
 {% block title %}{{ t.docs.title }}{% endblock %}
 {% block style %}
   <style>
-    .card h2 { margin: 28px 0 6px; font-size: 1.05rem; }
-    .card p { margin: 0 0 12px; color: #333; }
-    .card ul { margin: 0; padding-left: 1.2rem; color: #333; }
-    .card li { margin-bottom: 6px; }
     pre {
       margin: 0 0 12px; padding: 12px; background: #f7f7f8; border: 1px solid #e3e3e3; border-radius: 8px;
       font: 12px/1.5 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere;
@@ -16,7 +12,7 @@
   </style>
 {% endblock %}
 {% block body %}
-  <main class="card">
+  <main class="card reading">
     <h1>{{ t.docs.title }}</h1>
     <p>{{ t.docs.intro }}</p>
     <h2>{{ t.docs.snippet_heading }}</h2>
