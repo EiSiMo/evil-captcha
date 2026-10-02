@@ -97,7 +97,7 @@ paragraphs = [
 ]
 
 [[info.sections]]
-heading = "Does it work?"
+heading = "Works?"
 paragraphs = [
   "As long as AI behaves better than we do, yes.",
   "In our tests, today's frontier models reliably refuse the tasks. Older models or jailbroken local models can pass.",
