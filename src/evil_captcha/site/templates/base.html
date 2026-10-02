@@ -8,7 +8,8 @@
   <title>{% block title %}{% endblock %}</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }
-    footer { margin-top: 4rem; font-size: .8rem; }
+    /* The link row sits below the page's card. */
+    footer { margin-top: 16px; font-size: .8rem; color: #777; text-align: center; }
     footer a { color: #555; }
     /* Pages are cards in the style of a modern web form. */
     .card {
@@ -32,14 +33,16 @@
       background: #1a73e8; color: #fff; font: 600 1rem system-ui, sans-serif;
     }
     .button:hover { background: #1765cc; }
-    .card > .card-links { margin: 16px 0 0; font-size: .8rem; color: #777; text-align: center; }
-    .card-links a { color: #555; }
   </style>
   {% block style %}{% endblock %}
 </head>
 <body>
   {% block body %}{% endblock %}
-  {% block footer %}<footer><a href="/privacy">{{ t.privacy.link }}</a></footer>{% endblock %}
+  <footer>
+    <a href="https://github.com/EiSiMo/evil-captcha">{{ t.github_link }}</a> ·
+    {% block footer_link %}<a href="/verify">{{ t.verify_link }}</a>{% endblock %} ·
+    <a href="/privacy">{{ t.privacy.link }}</a>
+  </footer>
   {% block script %}{% endblock %}
 </body>
 </html>

@@ -33,13 +33,8 @@
         <button class="copy" type="button" data-copied="{{ t.copied }}" data-failed="{{ t.copy_failed }}">{{ t.copy_button }}</button>
       </div>
     </div>
-    <p class="card-links">
-      <a href="https://github.com/EiSiMo/evil-captcha">{{ t.github_link }}</a> · <a href="/verify">{{ t.verify_link }}</a> · <a href="/privacy">{{ t.privacy.link }}</a>
-    </p>
   </main>
 {% endblock %}
-{# The privacy link sits right under the certificate. #}
-{% block footer %}{% endblock %}
 {% block script %}
   <script>
     (() => {

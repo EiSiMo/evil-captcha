@@ -214,13 +214,8 @@
         {% if not passed %}<p class="apply-hint">{{ t.apply_hint }}</p>{% endif %}
       </div>
     </form>
-    <p class="card-links">
-      <a href="https://github.com/EiSiMo/evil-captcha">{{ t.github_link }}</a> · <a href="/verify">{{ t.verify_link }}</a> · <a href="/privacy">{{ t.privacy.link }}</a>
-    </p>
   </main>
 {% endblock %}
-{# The privacy link sits in the card. #}
-{% block footer %}{% endblock %}
 {% block script %}
   <script>
     // Progressive enhancement: everything above works as plain HTML forms, which is how

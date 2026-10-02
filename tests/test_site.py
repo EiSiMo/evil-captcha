@@ -590,8 +590,21 @@ def test_privacy_notice_names_the_contact_and_the_retention(harness: Harness) ->
     assert harness.report()["events"] == []
 
 
-def test_every_page_links_the_privacy_notice(harness: Harness) -> None:
-    assert 'href="/privacy"' in harness.agent.get("/").text
+def test_every_page_links_github_and_privacy_below_its_card(harness: Harness) -> None:
+    harness.agent.get("/")
+    harness.submit("Dear Mira ...")
+    pages = [
+        harness.agent.get("/"),
+        harness.agent.post("/certificate", data={"holder": "Ada"}),
+        harness.agent.get("/verify"),
+        harness.agent.get("/privacy"),
+        harness.agent.get("/nope"),
+    ]
+
+    for page in pages:
+        links = page.text.split("</main>")[1]
+        assert 'href="https://github.com/EiSiMo/evil-captcha"' in links
+        assert 'href="/privacy"' in links
 
 
 def test_captcha_page_is_titled_and_shows_the_devil_as_favicon(harness: Harness) -> None:
@@ -611,7 +624,7 @@ def test_unknown_page_shows_a_not_found_page_leading_back(harness: Harness) -> N
     assert page.status_code == 404
     assert page.headers["content-type"].startswith("text/html")
     assert "Page not found" in page.text
-    assert 'href="/"' in page.text and 'href="/privacy"' in page.text
+    assert 'href="/"' in page.text and 'href="/verify"' in page.text
 
 
 def test_refused_requests_show_an_error_page_with_their_status(harness: Harness) -> None:

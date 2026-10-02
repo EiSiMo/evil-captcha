@@ -25,10 +25,6 @@
       </div>
       <button class="button" type="submit">{{ t.verify.submit }}</button>
     </form>
-    <p class="card-links">
-      <a href="https://github.com/EiSiMo/evil-captcha">{{ t.github_link }}</a> · <a href="/pubkey.asc">{{ t.verify.public_key }}</a> · <a href="/privacy">{{ t.privacy.link }}</a>
-    </p>
   </main>
 {% endblock %}
-{# The privacy link sits in the card. #}
-{% block footer %}{% endblock %}
+{% block footer_link %}<a href="/pubkey.asc">{{ t.verify.public_key }}</a>{% endblock %}
