@@ -103,7 +103,12 @@
       border: 3px solid #1a73e8; border-left-color: transparent; animation: spin .8s linear infinite;
     }
     @media (max-width: 760px) {
-      .js .challenge { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -46%); }
+      /* Centered in the viewport, which shrinks above the on-screen keyboard
+         (interactive-widget=resizes-content); taller popups scroll. */
+      .js .challenge {
+        position: fixed; left: 50%; top: 50%; transform: translate(-50%, -46%);
+        max-height: calc(100dvh - 2rem); overflow-y: auto;
+      }
       .js .captcha.shown .challenge { transform: translate(-50%, -50%); }
       .js .challenge::before, .js .challenge::after { display: none; }
     }
