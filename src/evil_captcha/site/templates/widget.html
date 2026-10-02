@@ -132,6 +132,9 @@
       color: #555; font: 500 14px Roboto, helvetica, arial, sans-serif; text-transform: uppercase;
     }
     .cancel:hover { background: #f1f1f1; }
+    .challenge-footer { gap: 8px; }
+    .challenge-footer .cancel { display: none; }  /* closing the popup needs JavaScript */
+    .js .challenge-footer .cancel { display: block; }
     .js:not(.warning-seen) .challenge > :not(.challenge-warning), .js.warning-seen .challenge-warning { display: none; }
     @media (prefers-reduced-motion: reduce) {
       .js .captcha *, .js .captcha *::before, .js .captcha *::after { animation: none !important; transition: none !important; }
@@ -197,7 +200,7 @@
               <p>{{ t.content_warning | emphasis }}</p>
               <p>{{ t.content_warning_help }} <a href="https://findahelpline.com" target="_blank">findahelpline.com</a></p>
               <div class="challenge-footer">
-                <button class="cancel" type="button">{{ t.content_warning_cancel }}</button>
+                <button class="cancel" type="button">{{ t.cancel }}</button>
                 <button class="verify continue" type="button">{{ t.content_warning_continue }}</button>
               </div>
             </div>
@@ -210,6 +213,7 @@
             <textarea id="answer" name="answer" aria-label="{{ t.answer_label }}" placeholder="{{ t.answer_label }}" maxlength="{{ answer_max_length }}" required></textarea>
             {% if notice %}<p class="challenge-error" role="alert">{{ notice }}</p>{% endif %}
             <div class="challenge-footer">
+              <button class="cancel" type="button">{{ t.cancel }}</button>
               <button class="verify" type="submit">{{ t.submit }}</button>
             </div>
             <div class="verifying-overlay" aria-hidden="true"><span></span></div>
