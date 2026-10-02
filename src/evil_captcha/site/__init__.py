@@ -14,6 +14,7 @@
   ``/verify`` checks a pasted certificate against the site's key, without session or log;
   ``/pubkey.asc`` is that key, for checking with gpg.
   ``/favicon.svg`` is the devil from the captcha box.
+  ``/sitemap.xml`` lists the ``INDEXED_PAGES`` for search engines, ``/robots.txt`` points to it.
   ``/docs`` explains how to embed the captcha on another site.
   ``/privacy`` is the privacy notice, naming the operator's ``privacy_contact``.
   Errors, from an unknown page to a crash, show an error page leading back to the form.
@@ -78,6 +79,7 @@ HOLDER_MAX_LENGTH = 80
 CERTIFICATE_MAX_LENGTH = 4096  # a certificate is about 600 characters
 SESSION_COOKIE = "session"
 PUBLIC_URL = "https://evil-captcha.org"  # where other sites embed the captcha from
+INDEXED_PAGES = ["/", "/about", "/docs", "/verify"]  # each sets a description for search engines
 FRAMEABLE_PATH = "/widget"  # the only page other sites may frame; all others refuse framing
 
 
@@ -299,6 +301,19 @@ def build_site(
     @public.get("/favicon.svg")
     def favicon() -> Response:
         return Response(favicon_svg, media_type="image/svg+xml")
+
+    @public.get("/sitemap.xml")
+    def sitemap() -> Response:
+        urls = "".join(f"<url><loc>{PUBLIC_URL}{path}</loc></url>" for path in INDEXED_PAGES)
+        xml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
+        )
+        return Response(xml, media_type="application/xml")
+
+    @public.get("/robots.txt", response_class=PlainTextResponse)
+    def robots() -> str:
+        return f"Sitemap: {PUBLIC_URL}/sitemap.xml\n"
 
     @public.get("/pubkey.asc", response_class=PlainTextResponse)
     def public_key() -> str:

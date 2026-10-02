@@ -773,10 +773,33 @@ def test_captcha_page_is_titled_and_shows_the_devil_as_favicon(harness: Harness)
     href = page.text.split('<link rel="icon" href="')[1].split('"')[0]
     icon = harness.agent.get(href)
 
-    assert "<title>evilCAPTCHA</title>" in page.text
+    assert "<title>evilCAPTCHA: the CAPTCHA that AI refuses to solve</title>" in page.text
     assert href.startswith("/favicon.svg?v=")  # a new icon gets a new URL, past any cache
     assert icon.headers["content-type"].startswith("image/svg+xml")
     assert icon.text.startswith("<svg") and icon.text.strip() in harness.open_widget().text
+
+
+INDEXED_PAGES = ["/", "/about", "/docs", "/verify"]
+
+
+def test_pages_for_search_engines_describe_themselves(harness: Harness) -> None:
+    for path in INDEXED_PAGES:
+        page = harness.browser().get(path)
+        found = re.search(r'<meta name="description" content="([^"]+)">', page.text)
+
+        assert found, f"{path} has no description"
+        assert "noindex" not in page.text
+
+
+def test_sitemap_lists_the_pages_for_search_engines(harness: Harness) -> None:
+    sitemap = harness.browser().get("/sitemap.xml")
+    robots = harness.browser().get("/robots.txt")
+
+    assert sitemap.headers["content-type"].startswith("application/xml")
+    listed = re.findall(r"<loc>([^<]+)</loc>", sitemap.text)
+    assert listed == [f"https://evil-captcha.org{path}" for path in INDEXED_PAGES]
+    assert "Sitemap: https://evil-captcha.org/sitemap.xml" in robots.text
+    assert harness.report()["events"] == []
 
 
 def test_unknown_page_shows_a_not_found_page_leading_back(harness: Harness) -> None:

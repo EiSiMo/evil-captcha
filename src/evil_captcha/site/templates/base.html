@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+  {# Pages for search engines set a top-level ``{% set description = ... %}``. #}
+  {% if description is defined %}<meta name="description" content="{{ description }}">{% endif %}
   {% block meta %}{% endblock %}
   <link rel="icon" href="{{ favicon_url }}" type="image/svg+xml">
   <title>{% block title %}{% endblock %}</title>

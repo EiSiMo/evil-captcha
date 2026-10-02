@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% set active_page = "/" %}
+{% set description = t.description %}
 {% from "snippet.html" import snippet with context %}
-{% block title %}{{ t.site_name }}{% endblock %}
+{% block title %}{{ t.home_title }}{% endblock %}
 {% block style %}
   <style>
     /* The page is an application form: one name field, the captcha, and a submit button
