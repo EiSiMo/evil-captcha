@@ -43,4 +43,3 @@ An art-project CAPTCHA service, embeddable like Cloudflare Turnstile or Google r
 - Lint/format: `uv run ruff check --fix && uv run ruff format`
 - Types: `uv run pyright` (strict)
 - Hooks: `uv run pre-commit install` (runs all of the above on commit)
-- `spike/` holds throwaway experiments; it is excluded from type checking.

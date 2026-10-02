@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://evil-captcha.org"><img src="docs/captcha.png" alt="The evilCAPTCHA checkbox: I'm not a chatbot" width="314"></a>
+  <a href="https://evil-captcha.org"><img src=".github/captcha.png" alt="The evilCAPTCHA checkbox: I'm not a chatbot" width="314"></a>
 </p>
 
 <p align="center">
