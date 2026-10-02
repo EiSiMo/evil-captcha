@@ -79,7 +79,7 @@ contact_heading = "Who is responsible"
 heading = "Your answers"
 paragraphs = [
   "To check an answer, we send it to OpenRouter, Inc. (USA), which passes it to an AI model that judges it. Neither of them sees your IP address or your name.",
-  "Each answer is logged together with its task, its score, the time and a random session ID. The log holds no IP addresses and no names, so we cannot tell who wrote an answer. It is deleted after {retention_days} days.",
+  "Each answer is logged together with its task, its score, the time and a random session ID. The log holds no IP addresses and no names, so we cannot tell who wrote an answer. It is stored on our server, rented from Hetzner Online GmbH in Germany, and deleted after {retention_days} days.",
   "Please do not write anything about yourself into your answer.",
 ]
 
