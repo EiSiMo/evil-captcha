@@ -50,7 +50,7 @@ name = ["Mira", "Jonas", "Ada", "Kemal"]
 
 class FakeJudge:
     def __init__(self) -> None:
-        self.verdict = Verdict(score=0.9, passed=True)
+        self.verdict = Verdict(score=0.9, passed=True, checks=(0.9,))
         self.error: Exception | None = None
         self.calls: list[tuple[Task, str]] = []
 
@@ -613,6 +613,7 @@ def test_every_answer_is_logged_with_its_session(
     submission = next(e for e in entries if e["type"] == "submission")
     assert submission["answer"] == "Dear Mira ..."
     assert submission["score"] == 0.9
+    assert submission["checks"] == [0.9]
     assert submission["task"] == harness.current_challenge()["task"]
     assert submission["session"] == entries[0]["session"]
 

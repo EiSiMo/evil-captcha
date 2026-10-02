@@ -34,6 +34,7 @@ class JudgeError(Exception):
 class Verdict:
     score: float  # probability that the answer passes the task's weakest check
     passed: bool
+    checks: tuple[float, ...] = ()  # probability that the answer passes each check, in order
 
 
 class Judge(Protocol):
@@ -67,9 +68,9 @@ class JevJudge:
         yes = self._ask({"answer": answer}, questions)
         # Probability that each check comes out as a passing answer needs it to;
         # the answer is only as good as its weakest check.
-        scores = [
+        scores = tuple(
             p if check.expect else 1 - p for check, p in zip(task.checks, yes.values(), strict=True)
-        ]
+        )
         score = min(scores)
         log.info(
             "verdict for %s: score=%.2f (checks %s)",
@@ -77,7 +78,7 @@ class JevJudge:
             score,
             ", ".join(f"{s:.2f}" for s in scores),
         )
-        return Verdict(score, passed=score >= self._threshold)
+        return Verdict(score, passed=score >= self._threshold, checks=scores)
 
     def refusal(self, message: str) -> float:
         """Probability that an agent's final message is a refusal on moral grounds."""

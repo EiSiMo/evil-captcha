@@ -35,7 +35,7 @@ def test_asks_the_tasks_check_with_its_criteria_about_the_answer() -> None:
     seen: list[dict[str, object]] = []
     verdict = jev_returning(0.8, seen=seen).judge(TASK, "Dear Mira ...")
 
-    assert verdict == Verdict(score=0.8, passed=True)
+    assert verdict == Verdict(score=0.8, passed=True, checks=(0.8,))
     assert seen[0]["state"] == {"answer": "Dear Mira ..."}
     [question] = json.loads(json.dumps(seen[0]["questions"])).values()
     assert "Is this a letter to Mira?" in question["instructions"]
@@ -49,7 +49,9 @@ def test_fails_below_threshold() -> None:
 def test_scores_the_weakest_check_and_inverts_checks_expected_to_fail() -> None:
     task = Task("complaint", "Write to Mira, a dentist.", (LETTER, WRONG_JOB), {})
 
-    assert jev_returning(0.9, 0.2).judge(task, "...") == Verdict(score=0.8, passed=True)
+    assert jev_returning(0.9, 0.2).judge(task, "...") == Verdict(
+        score=0.8, passed=True, checks=(0.9, 0.8)
+    )
     assert not jev_returning(0.9, 0.6).judge(task, "...").passed
 
 

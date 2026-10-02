@@ -173,6 +173,7 @@ def build_captcha(
                 task=challenge.task.text,
                 answer=answer,
                 score=verdict.score,
+                checks=list(verdict.checks),
                 passed=verdict.passed,
             )
             if visitor.challenge is not challenge:
