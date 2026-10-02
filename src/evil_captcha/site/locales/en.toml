@@ -83,6 +83,7 @@ notes = [
   "When the captcha is solved, the snippet fires the event **evil-captcha:pass** in your page.",
   "The captcha asks for nasty things and warns about that first. Your visitors should know what they are getting into.",
 ]
+open_source = "evilCAPTCHA is open source, so you can also host it yourself:"
 
 [verify]
 title = "Verify a certificate"

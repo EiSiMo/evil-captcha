@@ -28,6 +28,7 @@
     <h2>{{ t.docs.notes_heading }}</h2>
     <ul>
       {% for note in t.docs.notes %}<li>{{ note.format(**facts) | emphasis }}</li>{% endfor %}
+      <li>{{ t.docs.open_source }} <a href="https://github.com/EiSiMo/evil-captcha">github.com/EiSiMo/evil-captcha</a></li>
     </ul>
   </main>
 {% endblock %}

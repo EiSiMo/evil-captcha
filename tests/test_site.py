@@ -719,6 +719,7 @@ def test_docs_show_the_snippet_our_own_form_uses_and_how_to_check_it(harness: Ha
     assert docs.status_code == 200
     assert public in html.unescape(docs.text)
     assert "https://evil-captcha.org/siteverify" in docs.text
+    assert "host it yourself" in docs.text
     assert "set-cookie" not in docs.headers
 
 
