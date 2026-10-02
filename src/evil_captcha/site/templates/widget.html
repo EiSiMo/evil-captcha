@@ -84,15 +84,15 @@
       opacity: 0; transition: opacity .2s;
     }
     .js .challenge {
-      position: absolute; z-index: 2; left: 58px; top: -70px; margin-top: 0;
+      position: absolute; z-index: 2; left: 58px; top: calc(-70px - var(--shift, 0px)); margin-top: 0;
       opacity: 0; transform: translateX(-8px); transition: opacity .2s, transform .2s;
     }
     .js .challenge::before {  /* the arrow pointing at the checkbox */
-      content: ""; position: absolute; left: -11px; top: 97px; border: 11px solid transparent;
+      content: ""; position: absolute; left: -11px; top: calc(97px + var(--shift, 0px)); border: 11px solid transparent;
       border-left: 0; border-right-color: #ccc;
     }
     .js .challenge::after {
-      content: ""; position: absolute; left: -10px; top: 98px; border: 10px solid transparent;
+      content: ""; position: absolute; left: -10px; top: calc(98px + var(--shift, 0px)); border: 10px solid transparent;
       border-left: 0; border-right-color: #fff;
     }
     .js .captcha.shown .backdrop { opacity: 1; }
@@ -242,6 +242,8 @@
         const root = document.documentElement;
         root.style.setProperty("--x", `${message.overlay ? message.left : 0}px`);
         root.style.setProperty("--y", `${message.overlay ? message.top : 0}px`);
+        const widget = document.querySelector("details.captcha");
+        if (widget) fit(widget);
         await frame();
         tell({ type: "placed" });
         placed?.();
@@ -257,12 +259,24 @@
         await done;
       }
 
+      // A framed page cannot scroll, so a popup reaching below the page moves up to fit,
+      // as far as its arrow still points at the checkbox. Narrow screens center it anyway.
+      function fit(widget) {
+        const challenge = widget.querySelector(".challenge");
+        challenge.style.removeProperty("--shift");
+        if (!embedded || !widget.open || matchMedia("(max-width: 760px)").matches) return;
+        const { top, bottom, height } = challenge.getBoundingClientRect();
+        const shift = Math.min(bottom - (innerHeight - 8), top - 8, height - 130);
+        if (shift > 0) challenge.style.setProperty("--shift", `${shift}px`);
+      }
+
       // Until continued, the popup shows the content warning instead of the task.
       const warning = () => !document.documentElement.classList.contains("warning-seen");
 
       async function show(widget) {
         await layout(true);
         widget.open = true;
+        fit(widget);
         await frame();
         widget.classList.add("shown");
         widget.querySelector(warning() ? ".continue" : "textarea").focus();
@@ -275,6 +289,7 @@
           console.warn("cannot remember that the content warning was seen", error);
         }
         document.documentElement.classList.add("warning-seen");
+        fit(widget);
         const challenge = widget.querySelector(".challenge");
         challenge.classList.remove("entering");
         await frame();
@@ -323,6 +338,7 @@
         const fresh = next.querySelector(".challenge");
         challenge.classList.remove("entering");
         challenge.replaceChildren(...fresh.childNodes);
+        fit(widget);
         await frame();
         challenge.classList.add("entering");
         challenge.querySelector("textarea").focus();
