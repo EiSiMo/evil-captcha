@@ -4,11 +4,18 @@
   <style>
     .card h1 { display: flex; align-items: center; gap: 10px; }
     .card h1 svg { width: 28px; height: 28px; flex: none; }
-    .certificate { position: relative; }
+    .certificate { position: relative; container-type: inline-size; }
     .copy { display: none; position: absolute; top: 8px; right: 8px; padding: 4px 10px; font: 12px system-ui, sans-serif; background: #fff; border: 1px solid #c7c7c7; border-radius: 6px; cursor: pointer; }
     .copy:hover { background: #f1f1f1; }
     .js .copy { display: block; }
-    #certificate { margin: 0; font: 12px/1.45 ui-monospace, monospace; background: #f7f7f8; border: 1px solid #e3e3e3; border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre; }
+    /* The certificate fits the card without scrolling: the font shrinks until the
+       64-column signature lines fit, and longer lines (the statement) wrap. Wrapping is
+       only visual, so copying keeps the signed text intact. */
+    #certificate {
+      margin: 0; padding: 12px; background: #f7f7f8; border: 1px solid #e3e3e3; border-radius: 8px;
+      font: max(9px, min(12px, (100cqi - 26px) / 39))/1.45 ui-monospace, monospace;
+      white-space: pre-wrap; overflow-wrap: anywhere;
+    }
   </style>
 {% endblock %}
 {% block body %}
