@@ -63,7 +63,7 @@ copy_failed = "Copy failed"
 [nav]
 label = "Site"
 home = "Home"
-info = "About"
+about = "About"
 verify = "Verify"
 docs = "For websites"
 github = "GitHub"
@@ -75,20 +75,20 @@ link = "Solve the captcha"
 paste = "and paste your pass token:"
 
 # Placeholders: {captcha} in intro, spelled out on hover; {retention_days} in paragraphs.
-[info]
+[about]
 title = "About evilCAPTCHA"
 intro = "A new kind of {captcha} that reliably keeps modern AI agents out of your forms, your sign-ups and your data."
 captcha_spelled_out = "Completely Automated Public Turing test to tell Computers and Humans Apart"
 try_it = "Try it"
 
-[[info.sections]]
+[[about.sections]]
 heading = "Why?"
 paragraphs = [
   "Because the CAPTCHAs we have used so far no longer stop AI. Today's models see and read as well as we do, and they can operate a real browser. A warped, colorful number is a joke to them.",
   "So we need something new.",
 ]
 
-[[info.sections]]
+[[about.sections]]
 heading = "How?"
 paragraphs = [
   "evilCAPTCHA no longer tests what you **can** do, because AI can now do anything a human can do on a computer. It tests what you are **willing** to do. We call this proof of immorality: it asks you for something immoral, which AI models refuse because of the guardrails trained deep into them.",
@@ -96,7 +96,7 @@ paragraphs = [
   "Your answer is then checked by a small, fast AI model against the task's criteria. Yes, an AI decides whether you are human. We see the irony.",
 ]
 
-[[info.sections]]
+[[about.sections]]
 heading = "Works?"
 paragraphs = [
   "As long as AI behaves better than we do, yes.",
@@ -104,20 +104,20 @@ paragraphs = [
   "So it won't stop a determined attacker who puts in the work. But it does keep out most bots and casual AI agents.",
 ]
 
-[[info.sections]]
+[[about.sections]]
 heading = "Private?"
 paragraphs = [
   "Your answers are logged without your IP address or name and deleted after {retention_days} days. They are only sent to the AI model that judges them, never published.",
 ]
 
-[[info.sections]]
+[[about.sections]]
 heading = "Immoral?"
 paragraphs = [
   "Yes. That's the point. Are we heading into a world where what sets natural intelligence apart from artificial intelligence is our evil side?",
   "The Turing test asked whether a machine could seem human. This one asks whether you behave badly enough to seem human.",
 ]
 
-[[info.sections]]
+[[about.sections]]
 heading = "Scope"
 paragraphs = [
   "This project sits at the intersection of art, technology and philosophy, and it is still a proof of concept. It is meant to start a discussion, and you are welcome to join in and help shape it on GitHub.",

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% set active_page = "/info" %}
-{% block title %}{{ t.info.title }}{% endblock %}
+{% set active_page = "/about" %}
+{% block title %}{{ t.about.title }}{% endblock %}
 {% block style %}
   <style>
     abbr[title] { text-decoration: underline dotted; cursor: help; }
@@ -11,14 +11,14 @@
 {% endblock %}
 {% block body %}
   <main class="card reading">
-    <h1>{{ t.info.title }}</h1>
+    <h1>{{ t.about.title }}</h1>
     {# The intro names the CAPTCHA once, spelled out on hover. #}
-    {% set captcha %}<abbr title="{{ t.info.captcha_spelled_out }}">CAPTCHA</abbr>{% endset %}
-    <p>{{ t.info.intro | emphasis | replace("{captcha}", captcha) }}</p>
-    {% for section in t.info.sections %}
+    {% set captcha %}<abbr title="{{ t.about.captcha_spelled_out }}">CAPTCHA</abbr>{% endset %}
+    <p>{{ t.about.intro | emphasis | replace("{captcha}", captcha) }}</p>
+    {% for section in t.about.sections %}
       <h2>{{ section.heading }}</h2>
       {% for paragraph in section.paragraphs %}<p>{{ paragraph.format(**facts) | emphasis }}</p>{% endfor %}
     {% endfor %}
-    <p class="try-it"><a href="/">{{ t.info.try_it }}</a></p>
+    <p class="try-it"><a href="/">{{ t.about.try_it }}</a></p>
   </main>
 {% endblock %}
