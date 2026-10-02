@@ -740,8 +740,7 @@ def test_info_explains_the_project(harness: Harness) -> None:
     assert "proof of immorality" in page.text
     assert '<abbr title="Completely Automated Public Turing test' in page.text
     assert f"{ACTIVITY_RETENTION_DAYS} days" in page.text
-    for target in ["/", "/docs", GITHUB]:  # try it, use it, shape it
-        assert f'href="{target}"' in page.text.split("</main>")[0]
+    assert 'href="/"' in page.text.split("</main>")[0]  # try it
     assert "set-cookie" not in page.headers
 
 

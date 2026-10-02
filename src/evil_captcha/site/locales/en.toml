@@ -80,8 +80,6 @@ title = "About evilCAPTCHA"
 intro = "A new kind of {captcha} that reliably keeps modern AI agents out of your forms, your sign-ups and your data."
 captcha_spelled_out = "Completely Automated Public Turing test to tell Computers and Humans Apart"
 try_it = "Try it"
-use_it = "Use it"
-shape_it = "Shape it"
 
 [[info.sections]]
 heading = "Why?"

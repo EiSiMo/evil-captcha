@@ -6,9 +6,9 @@
     .card h2 { margin: 28px 0 6px; font-size: 1.05rem; }
     .card p { margin: 0 0 12px; color: #333; }
     abbr[title] { text-decoration: underline dotted; cursor: help; }
-    .next { display: flex; justify-content: center; gap: 24px; margin-top: 28px; font-weight: 600; }
-    .next a { color: #1a73e8; text-decoration: none; }
-    .next a:hover { text-decoration: underline; }
+    .card .try-it { margin: 28px 0 0; text-align: center; font-weight: 600; }
+    .try-it a { color: #1a73e8; text-decoration: none; }
+    .try-it a:hover { text-decoration: underline; }
   </style>
 {% endblock %}
 {% block body %}
@@ -21,10 +21,6 @@
       <h2>{{ section.heading }}</h2>
       {% for paragraph in section.paragraphs %}<p>{{ paragraph.format(**facts) | emphasis }}</p>{% endfor %}
     {% endfor %}
-    <nav class="next">
-      <a href="/">{{ t.info.try_it }}</a>
-      <a href="/docs">{{ t.info.use_it }}</a>
-      <a href="https://github.com/EiSiMo/evil-captcha">{{ t.info.shape_it }}</a>
-    </nav>
+    <p class="try-it"><a href="/">{{ t.info.try_it }}</a></p>
   </main>
 {% endblock %}
