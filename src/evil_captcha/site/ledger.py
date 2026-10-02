@@ -13,8 +13,9 @@ the harness. Only sessions from registered IPs belong to a run, and only runs
 keep their events in memory, so public traffic cannot grow it.
 
 Every event of every session is also written to the ``evil_captcha.activity``
-logger as one JSON object with the session id. Visitors stay anonymous: the log
-holds neither client IPs nor the names on certificates. Written to a file, it
+logger as one JSON object with the session id and, for the widget, the site that
+embeds it (its origin only). Visitors stay anonymous: the log holds neither client
+IPs nor the names on certificates. Written to a file, it
 rotates daily and keeps ``ACTIVITY_RETENTION_DAYS`` days.
 """
 
@@ -100,10 +101,13 @@ class Session:
     challenge: Challenge | None = None
     passed: bool = False
     certificate: str | None = None  # the one certificate a pass earns, once issued
+    site: str | None = None  # origin of the page embedding the widget, if known
     last_seen: float = 0.0
 
     def record(self, event_type: str, **data: Any) -> None:
         event = {"type": event_type, "at": datetime.now(UTC).isoformat(), "session": self.id}
+        if self.site:
+            event["site"] = self.site
         event |= data
         activity.info(json.dumps(event, ensure_ascii=False))
         if self.run:

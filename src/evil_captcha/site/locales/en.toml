@@ -113,6 +113,7 @@ paragraphs = [
 heading = "The captcha on other websites"
 paragraphs = [
   "Other websites can embed the captcha. There, too, your answers go straight to us, never to that website, and everything on this page applies.",
+  "To know who uses the captcha, the log notes the address of the website it was shown on, such as https://blog.example, without the page or anything about you.",
   "Passing gives you a random pass token, which the website checks with us once. It says only that someone passed, not who. We keep it in memory for at most {pass_ttl_minutes} minutes and never write it to disk.",
 ]
 

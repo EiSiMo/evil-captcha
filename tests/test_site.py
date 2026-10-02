@@ -778,3 +778,27 @@ def test_pages_show_texts_not_python_objects(harness: Harness) -> None:
 
     for page in pages:
         assert "built-in method" not in page.text and "object at 0x" not in page.text
+
+
+# Which sites embed the captcha.
+
+
+def test_widget_events_name_the_site_that_embeds_it(harness: Harness) -> None:
+    page = harness.agent.get(
+        "/widget", headers={"Referer": "https://Blog.Example:8443/user/ada/post?id=7"}
+    )
+    harness.widget_session = hidden(page, "session")
+    token = pass_token(harness.submit("Dear Mira ..."))
+    harness.browser("192.0.2.80").post("/siteverify", data={"response": token})
+
+    events = harness.report()["events"]
+    assert [e["type"] for e in events] == ["challenge", "submission", "pass_redeemed"]
+    assert {e["site"] for e in events} == {"https://blog.example:8443"}  # no path, no user
+
+
+@pytest.mark.parametrize("referer", [None, "not a url", "javascript:alert(1)"])
+def test_widget_without_a_known_site_logs_none(harness: Harness, referer: str | None) -> None:
+    headers = {"Referer": referer} if referer else {}
+    harness.agent.get("/widget", headers=headers)
+
+    assert "site" not in harness.current_challenge()

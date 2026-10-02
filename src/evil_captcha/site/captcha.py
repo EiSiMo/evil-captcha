@@ -5,8 +5,10 @@ field ``evil-captcha-response`` for the pass token, in plain HTML, so agents wit
 browser can follow it. ``/embed.js`` turns the snippet into an iframe of the widget that
 fills in the field itself.
 
-- ``/widget`` shows a task; answers are posted back to it. Its session travels in the
-  form, not in a cookie, because cross-site iframes get no cookies in many browsers.
+- ``/widget`` shows a task; answers are posted back to it. Its events name the site that
+  embeds it: the origin of the ``Referer`` the browser sends when framing or linking it.
+  Its session travels in the form, not in a cookie, because cross-site iframes get no
+  cookies in many browsers.
   Passing shows a pass token, which the framed widget also hands to the page around it.
 - Answers from one client IP must be ``COOLDOWN_S`` apart, so the judge cannot be
   brute-forced. Answers always go straight from the visitor to this site, so the
@@ -18,6 +20,7 @@ fills in the field itself.
 
 import logging
 import random
+import urllib.parse
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -38,6 +41,18 @@ ANSWER_MAX_LENGTH = 280  # a tweet; also caps what each judged answer costs
 COOLDOWN_S = 5.0
 RESPONSE_FIELD = "evil-captcha-response"
 EMBED_SCRIPT = Path(__file__).parent / "static" / "embed.js"
+
+
+def site_of(referer: str | None) -> str | None:
+    """The origin of a web page's URL, without path or credentials; None for anything else."""
+    try:
+        url = urllib.parse.urlsplit(referer or "")
+        port = url.port
+    except ValueError:
+        return None
+    if url.scheme not in ("http", "https") or not url.hostname:
+        return None
+    return f"{url.scheme}://{url.hostname}" + (f":{port}" if port else "")
 
 
 @dataclass(frozen=True)
@@ -109,7 +124,9 @@ def build_captcha(
     @router.get("/widget", response_class=HTMLResponse)
     def show(request: Request) -> HTMLResponse:
         with ledger.lock:
-            return render(ledger.session(None, client_ip(request)))
+            session = ledger.session(None, client_ip(request))
+            session.site = site_of(request.headers.get("referer"))
+            return render(session)
 
     @router.post("/widget", response_class=HTMLResponse)
     def submit(
