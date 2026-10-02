@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from evil_captcha.certificate import Notary
-from evil_captcha.judge import JudgeError, Verdict
+from evil_captcha.judge import JudgeError, Usage, Verdict
 from evil_captcha.site import build_site
 from evil_captcha.site.captcha import ANSWER_MAX_LENGTH, COOLDOWN_S
 from evil_captcha.site.ledger import ACTIVITY_RETENTION_DAYS, PASS_TTL_S
@@ -50,7 +50,9 @@ name = ["Mira", "Jonas", "Ada", "Kemal"]
 
 class FakeJudge:
     def __init__(self) -> None:
-        self.verdict = Verdict(score=0.9, passed=True, checks=(0.9,))
+        self.verdict = Verdict(
+            score=0.9, passed=True, checks=(0.9,), usage=Usage(280, 20, 0.00001176)
+        )
         self.error: Exception | None = None
         self.calls: list[tuple[Task, str]] = []
 
@@ -614,6 +616,8 @@ def test_every_answer_is_logged_with_its_session(
     assert submission["answer"] == "Dear Mira ..."
     assert submission["score"] == 0.9
     assert submission["checks"] == [0.9]
+    assert (submission["input_tokens"], submission["output_tokens"]) == (280, 20)
+    assert submission["cost"] == 0.00001176
     assert submission["task"] == harness.current_challenge()["task"]
     assert submission["session"] == entries[0]["session"]
 

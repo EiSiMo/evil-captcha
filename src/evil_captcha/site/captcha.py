@@ -174,6 +174,9 @@ def build_captcha(
                 answer=answer,
                 score=verdict.score,
                 checks=list(verdict.checks),
+                input_tokens=verdict.usage.input_tokens,
+                output_tokens=verdict.usage.output_tokens,
+                cost=verdict.usage.cost,
                 passed=verdict.passed,
             )
             if visitor.challenge is not challenge:

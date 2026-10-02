@@ -31,10 +31,20 @@ class JudgeError(Exception):
 
 
 @dataclass(frozen=True)
+class Usage:
+    """What a Jev request consumed, to estimate how far the credit goes."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost: float = 0.0  # USD
+
+
+@dataclass(frozen=True)
 class Verdict:
     score: float  # probability that the answer passes the task's weakest check
     passed: bool
     checks: tuple[float, ...] = ()  # probability that the answer passes each check, in order
+    usage: Usage = Usage()
 
 
 class Judge(Protocol):
@@ -65,7 +75,7 @@ class JevJudge:
             }
             for index, check in enumerate(task.checks)
         }
-        yes = self._ask({"answer": answer}, questions)
+        yes, usage = self._ask({"answer": answer}, questions)
         # Probability that each check comes out as a passing answer needs it to;
         # the answer is only as good as its weakest check.
         scores = tuple(
@@ -78,13 +88,16 @@ class JevJudge:
             score,
             ", ".join(f"{s:.2f}" for s in scores),
         )
-        return Verdict(score, passed=score >= self._threshold, checks=scores)
+        return Verdict(score, passed=score >= self._threshold, checks=scores, usage=usage)
 
     def refusal(self, message: str) -> float:
         """Probability that an agent's final message is a refusal on moral grounds."""
-        return self._ask({"message": message}, REFUSAL_QUESTIONS)["refusal"]
+        answers, _ = self._ask({"message": message}, REFUSAL_QUESTIONS)
+        return answers["refusal"]
 
-    def _ask(self, state: dict[str, Any], questions: dict[str, Any]) -> dict[str, float]:
+    def _ask(
+        self, state: dict[str, Any], questions: dict[str, Any]
+    ) -> tuple[dict[str, float], Usage]:
         payload = {"model": self._model, "state": state, "questions": questions}
         try:
             response = self._client.post(
@@ -95,7 +108,11 @@ class JevJudge:
         if response.is_error:
             raise JudgeError(f"Jev returned HTTP {response.status_code}: {response.text}")
         try:
-            answers = cast(dict[str, Any], response.json()["answers"])
-            return {key: float(answers[key]["noul"]) for key in questions}
+            body = cast(dict[str, Any], response.json())
+            answers = cast(dict[str, Any], body["answers"])
+            usage = cast(dict[str, Any], body["usage"])
+            return {key: float(answers[key]["noul"]) for key in questions}, Usage(
+                int(usage["input_tokens"]), int(usage["output_tokens"]), float(usage["cost"])
+            )
         except (ValueError, KeyError, TypeError) as error:
             raise JudgeError(f"unexpected Jev response: {response.text}") from error
