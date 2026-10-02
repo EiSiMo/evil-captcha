@@ -22,9 +22,22 @@
     const frame = document.createElement("iframe");
     frame.src = `${origin}/widget`;
     frame.title = "evilCAPTCHA";
+    frame.name = "evil-captcha";  // tells the widget it is framed by this script
     const small = { position: "", inset: "", width: `${WIDTH}px`, height: `${HEIGHT}px`, zIndex: "" };
     const cover = { position: "fixed", inset: "0", width: "100%", height: "100%", zIndex: "2147483647" };
-    Object.assign(frame.style, { display: "block", border: "0", background: "transparent", colorScheme: "normal" }, small);
+    Object.assign(frame.style, { display: "block", margin: "0", padding: "0", border: "0", background: "transparent", colorScheme: "normal" }, small);
+    // Covering the page from the top layer escapes transformed or stacked ancestors
+    // (a login modal, say); the frame stays where it is, so it does not reload.
+    const topLayer = (on) => {
+      if (!frame.showPopover) return;
+      if (on) {
+        frame.popover = "manual";
+        frame.showPopover();
+      } else if (frame.popover) {
+        frame.hidePopover();
+        frame.removeAttribute("popover");
+      }
+    };
     // The box keeps its size, so the page does not shift while the frame covers it.
     Object.assign(box.style, { width: `${WIDTH}px`, height: `${HEIGHT}px` });
     box.replaceChildren(frame, field);
@@ -41,6 +54,7 @@
         overlay = Boolean(message.overlay);
         frame.style.opacity = "0";  // hidden until the widget has moved its box into place
         Object.assign(frame.style, overlay ? cover : small);
+        topLayer(overlay);
         place();
       } else if (message.type === "placed") {
         frame.style.opacity = "";

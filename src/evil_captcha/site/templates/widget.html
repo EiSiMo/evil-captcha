@@ -4,8 +4,9 @@
 {% block style %}
   <script>
     // Before first paint, so a framed widget never flashes the standalone page.
+    // embed.js names its frame; the name survives the frame's own navigations.
     document.documentElement.classList.add("js");
-    if (window.parent !== window) document.documentElement.classList.add("embedded");
+    if (window.name === "evil-captcha") document.documentElement.classList.add("embedded");
     try {
       if (sessionStorage.getItem("content-warning-seen")) document.documentElement.classList.add("warning-seen");
     } catch (error) {
@@ -231,10 +232,10 @@
       const motion = !matchMedia("(prefers-reduced-motion: reduce)").matches;
       const wait = (ms) => new Promise((resolve) => setTimeout(resolve, motion ? ms : 0));
       const frame = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      const embedded = window.parent !== window;
+      const embedded = document.documentElement.classList.contains("embedded");
       const tell = (message) => window.parent.postMessage({ source: "evil-captcha", ...message }, "*");
 
-      let overlay = false;
+      let overlay = null;  // unknown on load, so the first layout always reaches the page
       let placed = null;  // resolves the pending layout change
       addEventListener("message", async (event) => {
         const message = event.data;
@@ -319,6 +320,7 @@
           if (!next) throw new Error(`unexpected response with status ${response.status}`);
         } catch (error) {
           console.error("checking the answer in place failed, submitting the page instead", error);
+          await layout(false);  // whatever loads next must not leave the page covered
           form.submit();
           return;
         }
@@ -378,6 +380,7 @@
       }
 
       const form = document.getElementById("widget");
+      if (!form.querySelector("details.captcha[open]")) layout(false);
       enhance(form);
       // A pass shown on load (the page was submitted without the in-place check) still counts.
       const pass = form.querySelector(".pass");
