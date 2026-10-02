@@ -41,6 +41,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoes
 from markupsafe import Markup, escape
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from evil_captcha.certificate import InvalidCertificate, Notary
 from evil_captcha.judge import Judge
@@ -81,6 +82,27 @@ SESSION_COOKIE = "session"
 PUBLIC_URL = "https://evil-captcha.org"  # where other sites embed the captcha from
 INDEXED_PAGES = ["/", "/about", "/docs", "/verify"]  # each sets a description for search engines
 FRAMEABLE_PATH = "/widget"  # the only page other sites may frame; all others refuse framing
+
+
+class HeadAsGet:
+    """Answers HEAD like GET, without the body: link checkers and previews ask with HEAD."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope["method"] != "HEAD":
+            await self.app(scope, receive, send)
+            return
+
+        async def headers_only(message: Message) -> None:
+            if message["type"] == "http.response.body":
+                if message.get("more_body", False):
+                    return
+                message = {"type": "http.response.body", "body": b"", "more_body": False}
+            await send(message)
+
+        await self.app({**scope, "method": "GET"}, receive, headers_only)
 
 
 def build_site(
@@ -203,6 +225,7 @@ def build_site(
         client_ip=client_ip,
     )
     public.include_router(captcha.router)
+    public.add_middleware(HeadAsGet)
 
     @public.middleware("http")
     async def refuse_framing(

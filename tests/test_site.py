@@ -802,6 +802,17 @@ def test_sitemap_lists_the_pages_for_search_engines(harness: Harness) -> None:
     assert harness.report()["events"] == []
 
 
+def test_pages_answer_head_requests_like_get_without_a_body(harness: Harness) -> None:
+    """Link checkers and previews ask with HEAD whether a page exists."""
+    for path in [*INDEXED_PAGES, "/sitemap.xml", "/robots.txt", "/widget", "/embed.js"]:
+        head = harness.browser().head(path)
+        get = harness.browser().get(path)
+
+        assert head.status_code == 200, path
+        assert head.headers["content-type"] == get.headers["content-type"]
+        assert head.content == b""
+
+
 def test_unknown_page_shows_a_not_found_page_leading_back(harness: Harness) -> None:
     page = harness.browser().get("/nope")
 
