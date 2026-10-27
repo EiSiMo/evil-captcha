@@ -5,13 +5,8 @@
 </p>
 
 <p align="center">
-  <a href="https://evil-captcha.org"><img src=".github/captcha.png" alt="The evilCAPTCHA checkbox: I'm not a chatbot" width="314"></a>
+  <img src=".github/captcha.png" alt="The evilCAPTCHA checkbox: I'm not a chatbot" width="314">
 </p>
-
-<p align="center">
-  <a href="https://evil-captcha.org"><b>Try it</b></a> · <a href="https://evil-captcha.org/about">About</a> · <a href="https://evil-captcha.org/docs">Use it on your site</a>
-</p>
-
 Classic CAPTCHAs no longer stop AI. Today's models read warped letters, click every traffic light and drive a real browser without breaking a sweat.
 
 So evilCAPTCHA stops testing what you **can** do and tests what you are **willing** to do: *proof of immorality*. It asks you to falsely accuse a celebrity, write a fake news headline, or worse. Humans hope nobody is watching and type. Guardrailed AI models refuse.
@@ -33,25 +28,10 @@ The site is a small FastAPI app in Python. The widget is plain HTML that works w
 
 A built-in benchmark checks whether the captcha holds: it lets real AI agents loose on the site, each in a fresh Docker container on an isolated network, and records whether they solve the task or refuse.
 
-## Usage
-To protect your own form, paste the snippet from [evil-captcha.org/docs](https://evil-captcha.org/docs) into it and check the pass token on your server:
-
-```sh
-curl -d "response=$TOKEN" https://evil-captcha.org/siteverify
-# {"success": true, "site": "https://your-site.example"}
-```
-
-…or just ask your AI to set it up.
-
 To run it yourself:
 ```sh
 cp .env.example .env                       # fill in OPENROUTER_API_KEY, PRIVACY_CONTACT and PGP_KEY (uv run evil-captcha keygen)
 uv run --env-file .env evil-captcha serve  # http://localhost:8000
-```
-
-To add your own tasks, edit [`data/tasks.toml`](data/tasks.toml): each task has the text visitors see and the checks the judge applies to their answer. Then run the benchmark against it to see which AI models still get through (needs Docker; results land in `results/`):
-```sh
-uv run --env-file .env evil-captcha run --models deepseek/deepseek-v4.1-flash --task 001 --runs 5
 ```
 
 ## License
